@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 1rem;
 }
 
 .fe-row {
@@ -17,9 +16,23 @@
   opacity: 0.5;
 }
 
+/* Formulaire d'ajout : en haut, dans un encadré discret */
+.add-fe {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f6f8fc;
+  border: 1px solid #e6ebf5;
+}
+
 .add-fe h4 {
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.add-fe .error {
+  margin: 0.5rem 0 0;
 }
 
 .add-fe-form {
@@ -30,6 +43,19 @@
 
 .add-fe-form > * {
   flex: 1 1 130px;
+}
+
+/* Sur grand écran : mêmes colonnes que les lignes du tableau juste en dessous */
+@media (min-width: 721px) {
+  .add-fe-form {
+    display: grid;
+    grid-template-columns: 1.4fr 90px 1fr 110px 60px 90px 32px;
+    gap: 0.4rem;
+  }
+
+  .add-fe-form button {
+    grid-column: 6 / span 2;
+  }
 }
 
 @media (max-width: 720px) {

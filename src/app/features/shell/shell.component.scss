@@ -37,7 +37,7 @@ $muted: #6b7280;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  max-width: 1040px;
+  max-width: 1400px;
   height: 56px;
   margin: 0 auto;
   padding: 0 0.75rem;
@@ -49,14 +49,8 @@ $muted: #6b7280;
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
   transition:
     height 0.2s ease,
-    max-width 0.2s ease,
     box-shadow 0.2s ease,
     background 0.2s ease;
-}
-
-/* La page Mois passe en deux colonnes : on lui donne plus de largeur. */
-.pill.wide {
-  max-width: 1400px;
 }
 
 .pill.scrolled {

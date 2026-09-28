@@ -1,6 +1,16 @@
 <section class="panel">
   <h3>Catégories</h3>
 
+  <div class="add-cat">
+    <input
+      placeholder="Nouvelle catégorie"
+      [ngModel]="newName()"
+      (ngModelChange)="newName.set($event)"
+      (keyup.enter)="add()"
+    />
+    <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
+  </div>
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
@@ -13,9 +23,4 @@
       </li>
     }
   </ul>
-
-  <div class="add-cat">
-    <input placeholder="Nouvelle catégorie" [ngModel]="newName()" (ngModelChange)="newName.set($event)" />
-    <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
-  </div>
 </section>

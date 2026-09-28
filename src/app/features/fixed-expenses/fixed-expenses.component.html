@@ -8,9 +8,41 @@
     "Nouveau mois", les dépenses actives sont copiées telles quelles, figées, dans ce mois.
   </p>
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+  <div class="add-fe">
+    <h4>Ajouter une dépense fixe</h4>
+    <div class="add-fe-form">
+      <input placeholder="Nom" [ngModel]="form().name" (ngModelChange)="updateFormField('name', $event)" />
+      <input
+        type="number"
+        step="0.01"
+        placeholder="Montant"
+        [ngModel]="form().amount"
+        (ngModelChange)="updateFormField('amount', $event)"
+      />
+      <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
+        <option [ngValue]="null">Sans catégorie</option>
+        @for (c of data.categories(); track c.id) {
+          <option [ngValue]="c.id">{{ c.name }}</option>
+        }
+      </select>
+      <select [ngModel]="form().frequency" (ngModelChange)="updateFormField('frequency', $event)">
+        <option value="monthly">Mensuelle</option>
+        <option value="annual">Annuelle</option>
+      </select>
+      <input
+        type="number"
+        min="1"
+        max="28"
+        title="Jour de prélèvement"
+        [ngModel]="form().payment_day"
+        (ngModelChange)="updateFormField('payment_day', $event)"
+      />
+      <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
+    </div>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  </div>
 
   <div class="fe-table">
     @for (f of data.fixedExpenses(); track f.id) {
@@ -49,38 +81,5 @@
     @if (data.fixedExpenses().length === 0) {
       <p class="empty">Aucune dépense fixe pour l'instant.</p>
     }
-  </div>
-
-  <div class="add-fe">
-    <h4>Ajouter une dépense fixe</h4>
-    <div class="add-fe-form">
-      <input placeholder="Nom" [ngModel]="form().name" (ngModelChange)="updateFormField('name', $event)" />
-      <input
-        type="number"
-        step="0.01"
-        placeholder="Montant"
-        [ngModel]="form().amount"
-        (ngModelChange)="updateFormField('amount', $event)"
-      />
-      <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
-        <option [ngValue]="null">Sans catégorie</option>
-        @for (c of data.categories(); track c.id) {
-          <option [ngValue]="c.id">{{ c.name }}</option>
-        }
-      </select>
-      <select [ngModel]="form().frequency" (ngModelChange)="updateFormField('frequency', $event)">
-        <option value="monthly">Mensuelle</option>
-        <option value="annual">Annuelle</option>
-      </select>
-      <input
-        type="number"
-        min="1"
-        max="28"
-        title="Jour de prélèvement"
-        [ngModel]="form().payment_day"
-        (ngModelChange)="updateFormField('payment_day', $event)"
-      />
-      <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
-    </div>
   </div>
 </section>
