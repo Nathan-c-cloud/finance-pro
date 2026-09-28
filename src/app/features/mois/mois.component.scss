@@ -351,20 +351,47 @@ button.link-btn {
 }
 
 @media (max-width: 860px) {
+  /* Formulaire d'ajout : champs pleine largeur, montant et catégorie côte à côte */
+  .add-tx-form > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .add-tx-form .f-amount,
+  .add-tx-form .f-cat {
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+
+  /* Chaque transaction devient une petite carte (minmax(0, 1fr) évite tout débordement) */
+  .tx-table {
+    gap: 0.6rem;
+  }
+
   .tx-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'type delete'
       'name name'
       'amount cat'
       'date toggle';
+    gap: 0.5rem;
+    padding: 0.7rem;
+    border: 1px solid #eceef2;
+    border-radius: 12px;
   }
+
+  .tx-row > * {
+    min-width: 0;
+    width: 100%;
+  }
+
   .tx-type {
     grid-area: type;
   }
-  .delete {
+  .tx-row .delete {
     grid-area: delete;
     justify-self: end;
+    width: auto;
   }
   .tx-name {
     grid-area: name;
@@ -380,5 +407,6 @@ button.link-btn {
   }
   .toggle-chip {
     grid-area: toggle;
+    padding: 0.5rem;
   }
 }
