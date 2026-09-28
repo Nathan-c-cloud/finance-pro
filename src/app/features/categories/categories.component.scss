@@ -1,0 +1,29 @@
+.cat-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 400px;
+}
+
+.cat-list li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.cat-list input {
+  flex: 1;
+}
+
+.add-cat {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 400px;
+}
+
+.add-cat input {
+  flex: 1;
+}

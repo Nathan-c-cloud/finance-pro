@@ -1,0 +1,137 @@
+/* Styles globaux partagés par toutes les pages de l'app */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: #1c1e21;
+  background: #f4f5f7;
+}
+
+button {
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #d6d8dc;
+  background: #fff;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+button.primary {
+  background: #2f6feb;
+  border-color: #2f6feb;
+  color: #fff;
+  font-weight: 600;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.ghost {
+  background: none;
+  border-color: transparent;
+  color: #555;
+}
+
+button.link-btn {
+  background: none;
+  border: none;
+  color: #2f6feb;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+button.delete {
+  border: none;
+  background: none;
+  color: #c0392b;
+  font-size: 0.9rem;
+}
+
+button.toggle-chip {
+  font-size: 0.7rem;
+  padding: 0.3rem 0.4rem;
+  color: #888;
+}
+
+button.toggle-chip.on {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+  color: #2e7d32;
+}
+
+input,
+select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #d6d8dc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hint {
+  color: #777;
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+.total {
+  font-weight: 600;
+  color: #2f6feb;
+}
+
+.error {
+  color: #c0392b;
+  background: #fdecea;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.info {
+  color: #1e824c;
+  background: #e8f5e9;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.empty {
+  color: #888;
+  font-size: 0.85rem;
+}

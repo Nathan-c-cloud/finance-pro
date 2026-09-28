@@ -1,0 +1,279 @@
+.month-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+select,
+input {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #d6d8dc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+button {
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #d6d8dc;
+  background: #fff;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+button.primary {
+  background: #2f6feb;
+  border-color: #2f6feb;
+  color: #fff;
+  font-weight: 600;
+}
+
+button.ghost {
+  background: none;
+  border-color: transparent;
+  color: #555;
+}
+
+button.link-btn {
+  background: none;
+  border: none;
+  color: #2f6feb;
+  padding: 0;
+}
+
+.status-badge {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.status-badge.closed {
+  background: #eceff1;
+  border-color: #cfd8dc;
+  color: #546e7a;
+}
+
+.info {
+  color: #1e824c;
+  background: #e8f5e9;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.error {
+  color: #c0392b;
+  background: #fdecea;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.card.highlight {
+  background: #eaf1ff;
+}
+
+.card .label {
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.card .value {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.value.positive {
+  color: #2e7d32;
+}
+
+.value.negative {
+  color: #c0392b;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recon {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.recon .positive {
+  color: #2e7d32;
+}
+
+.recon .negative {
+  color: #c0392b;
+}
+
+.edit-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.edit-balance label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.edit-balance .actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.breakdown li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed #eee;
+}
+
+.tx-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.tx-row {
+  display: grid;
+  grid-template-columns: 70px 1.4fr 90px 1fr 130px 110px 32px;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.tx-row.income {
+  background: #f3fbf4;
+}
+
+.tx-type {
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.toggle-chip {
+  font-size: 0.7rem;
+  padding: 0.3rem 0.4rem;
+  color: #888;
+}
+
+.toggle-chip.on {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+  color: #2e7d32;
+}
+
+.delete {
+  border: none;
+  background: none;
+  color: #c0392b;
+  font-size: 0.9rem;
+}
+
+.empty {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.add-tx h4 {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.add-tx-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.add-tx-form > * {
+  flex: 1 1 140px;
+}
+
+@media (max-width: 720px) {
+  .tx-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'type delete'
+      'name name'
+      'amount cat'
+      'date toggle';
+  }
+  .tx-type {
+    grid-area: type;
+  }
+  .delete {
+    grid-area: delete;
+    justify-self: end;
+  }
+  .tx-name {
+    grid-area: name;
+  }
+  .tx-amount {
+    grid-area: amount;
+  }
+  .tx-cat {
+    grid-area: cat;
+  }
+  .tx-date {
+    grid-area: date;
+  }
+  .toggle-chip {
+    grid-area: toggle;
+  }
+}

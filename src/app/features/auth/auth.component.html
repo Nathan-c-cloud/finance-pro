@@ -1,0 +1,61 @@
+<div class="auth-page">
+  <form class="auth-card" (ngSubmit)="submit()">
+    <h1>Suivi Budget</h1>
+    <p class="subtitle">
+      {{ mode() === 'login' ? 'Connecte-toi à ton espace' : 'Crée ton compte' }}
+    </p>
+
+    <label>
+      Email
+      <input
+        type="email"
+        name="email"
+        autocomplete="email"
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+        required
+      />
+    </label>
+
+    <label>
+      Mot de passe
+      <input
+        type="password"
+        name="password"
+        [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        required
+      />
+    </label>
+
+    @if (mode() === 'signup') {
+      <label>
+        Confirmer le mot de passe
+        <input
+          type="password"
+          name="confirmPassword"
+          autocomplete="new-password"
+          [ngModel]="confirmPassword()"
+          (ngModelChange)="confirmPassword.set($event)"
+          required
+        />
+      </label>
+    }
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+    @if (info()) {
+      <p class="info">{{ info() }}</p>
+    }
+
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Patiente...' : mode() === 'login' ? 'Se connecter' : "Créer mon compte" }}
+    </button>
+
+    <button type="button" class="link-btn" (click)="toggleMode()">
+      {{ mode() === 'login' ? "Pas encore de compte ? Créer un compte" : 'Déjà un compte ? Se connecter' }}
+    </button>
+  </form>
+</div>

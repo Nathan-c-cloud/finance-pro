@@ -1,0 +1,24 @@
+@if (data.loading()) {
+  <p>Chargement...</p>
+} @else if (data.allSummaries().length === 0) {
+  <p>Pas encore de données à afficher.</p>
+} @else {
+  <div class="grid">
+    <div class="panel">
+      <h3>Évolution du solde de fin de mois</h3>
+      <canvas #balanceCanvas></canvas>
+    </div>
+    <div class="panel">
+      <h3>Revenus / Dépenses / Épargne</h3>
+      <canvas #flowCanvas></canvas>
+    </div>
+    <div class="panel">
+      <h3>Taux d'épargne dans le temps</h3>
+      <canvas #rateCanvas></canvas>
+    </div>
+    <div class="panel">
+      <h3>Répartition du mois en cours</h3>
+      <canvas #breakdownCanvas></canvas>
+    </div>
+  </div>
+}

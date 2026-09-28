@@ -1,0 +1,222 @@
+@if (data.loading()) {
+  <p>Chargement...</p>
+} @else if (!data.currentMonth()) {
+  <p>Aucun mois pour l'instant.</p>
+} @else {
+  <div class="month-header">
+    <select [ngModel]="data.currentMonth()!.id" (ngModelChange)="onSelectMonth($event)">
+      @for (m of months; track m.id) {
+        <option [value]="m.id">
+          {{ data.monthLabel(m.month_date) }} — {{ m.status === 'current' ? 'Courant' : 'Clôturé' }}
+        </option>
+      }
+    </select>
+
+    <button class="status-badge" [class.closed]="data.currentMonth()!.status === 'closed'" (click)="toggleStatus()">
+      {{ data.currentMonth()!.status === 'current' ? 'Courant' : 'Clôturé' }}
+    </button>
+
+    <button class="primary" (click)="createNextMonth()" [disabled]="generating()">
+      {{ generating() ? 'Création...' : '+ Nouveau mois' }}
+    </button>
+  </div>
+
+  @if (info()) {
+    <p class="info">{{ info() }}</p>
+  }
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (data.currentSummary(); as s) {
+    <section class="cards">
+      <div class="card">
+        <span class="label">Solde début</span>
+        <span class="value">{{ formatEUR(s.startingBalance) }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Revenus</span>
+        <span class="value positive">{{ formatEUR(s.income) }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Dépenses (hors épargne)</span>
+        <span class="value negative">{{ formatEUR(s.expensesExcludingSavings) }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Épargne</span>
+        <span class="value">{{ formatEUR(s.savings) }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Reste à vivre</span>
+        <span class="value">{{ formatEUR(s.remainingBeforeVariable) }}</span>
+      </div>
+      <div class="card highlight">
+        <span class="label">Solde fin</span>
+        <span class="value">{{ formatEUR(s.endingBalance) }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Taux d'épargne</span>
+        <span class="value">{{ formatPercent(s.savingsRate) }}</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Solde de départ &amp; rapprochement bancaire</h3>
+        @if (!editingBalance()) {
+          <button class="link-btn" (click)="startEditBalance()">Modifier</button>
+        }
+      </div>
+
+      @if (!editingBalance()) {
+        @if (data.reconciliation(); as r) {
+          <div class="recon">
+            <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
+            <span>Solde réel constaté : <strong>{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
+            @if (r.gap !== null) {
+              <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">
+                Écart : <strong>{{ formatEUR(r.gap) }}</strong>
+              </span>
+            }
+          </div>
+        }
+      } @else {
+        <div class="edit-balance">
+          <label>
+            Solde de départ forcé (laisser vide = automatique, reporté du mois précédent)
+            <input
+              type="number"
+              step="0.01"
+              [ngModel]="balanceOverrideInput()"
+              (ngModelChange)="balanceOverrideInput.set($event)"
+              placeholder="Automatique"
+            />
+          </label>
+          <label>
+            Solde réel constaté (rapprochement bancaire)
+            <input
+              type="number"
+              step="0.01"
+              [ngModel]="realBalanceInput()"
+              (ngModelChange)="realBalanceInput.set($event)"
+              placeholder="Non renseigné"
+            />
+          </label>
+          <div class="actions">
+            <button class="ghost" (click)="clearOverride()">Effacer l'override</button>
+            <button class="primary" (click)="saveBalanceOverride()">Enregistrer</button>
+            <button class="ghost" (click)="editingBalance.set(false)">Annuler</button>
+          </div>
+        </div>
+      }
+    </section>
+
+    <section class="panel">
+      <h3>Répartition par catégorie</h3>
+      <ul class="breakdown">
+        @for (b of s.byCategory; track b.categoryId) {
+          @if (b.amount !== 0) {
+            <li>
+              <span>{{ b.categoryName }}</span>
+              <span>{{ formatEUR(b.amount) }}</span>
+            </li>
+          }
+        }
+      </ul>
+    </section>
+  }
+
+  <section class="panel">
+    <h3>Transactions du mois</h3>
+    <div class="tx-table">
+      @for (t of data.currentMonthTransactions(); track t.id) {
+        <div class="tx-row" [class.income]="t.type === 'income'">
+          <span class="tx-type">{{ typeLabel(t.type) }}</span>
+          <input class="tx-name" [ngModel]="t.name" (change)="updateTxName(t.id, $any($event.target).value)" />
+          <input
+            class="tx-amount"
+            type="number"
+            step="0.01"
+            [ngModel]="t.amount"
+            (change)="updateTxAmount(t.id, $any($event.target).value)"
+          />
+          <select class="tx-cat" [ngModel]="t.category_id" (ngModelChange)="updateTxCategory(t.id, $event)">
+            <option [ngValue]="null">Sans catégorie</option>
+            @for (c of data.categories(); track c.id) {
+              <option [ngValue]="c.id">{{ c.name }}</option>
+            }
+          </select>
+          <input
+            class="tx-date"
+            type="date"
+            [ngModel]="t.tx_date"
+            (change)="updateTxDate(t.id, $any($event.target).value)"
+          />
+          @if (t.type !== 'income') {
+            <button
+              class="toggle-chip"
+              [class.on]="t.necessary"
+              title="Nécessaire ?"
+              (click)="toggleNecessary(t.id, t.necessary)"
+            >
+              {{ t.necessary ? 'Nécessaire' : 'Optionnel' }}
+            </button>
+          } @else {
+            <button
+              class="toggle-chip"
+              [class.on]="t.received"
+              title="Reçu ?"
+              (click)="toggleReceived(t.id, t.received)"
+            >
+              {{ t.received ? 'Reçu' : 'À venir' }}
+            </button>
+          }
+          <button class="delete" (click)="removeTx(t.id)">✕</button>
+        </div>
+      }
+      @if (data.currentMonthTransactions().length === 0) {
+        <p class="empty">Aucune transaction ce mois-ci pour l'instant.</p>
+      }
+    </div>
+
+    <div class="add-tx">
+      <h4>Ajouter une transaction</h4>
+      <div class="add-tx-form">
+        <select [ngModel]="form().type" (ngModelChange)="updateFormField('type', $event)">
+          <option value="variable">Dépense variable</option>
+          <option value="fixed">Dépense fixe (ponctuelle)</option>
+          <option value="income">Revenu</option>
+        </select>
+        <input
+          placeholder="Nom"
+          [ngModel]="form().name"
+          (ngModelChange)="updateFormField('name', $event)"
+        />
+        <input
+          type="number"
+          step="0.01"
+          placeholder="Montant"
+          [ngModel]="form().amount"
+          (ngModelChange)="updateFormField('amount', $event)"
+        />
+        <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
+          <option [ngValue]="null">Sans catégorie</option>
+          @for (c of data.categories(); track c.id) {
+            <option [ngValue]="c.id">{{ c.name }}</option>
+          }
+        </select>
+        <input
+          type="date"
+          [ngModel]="form().tx_date"
+          (ngModelChange)="updateFormField('tx_date', $event)"
+        />
+        <input
+          placeholder="Détail (optionnel)"
+          [ngModel]="form().detail"
+          (ngModelChange)="updateFormField('detail', $event)"
+        />
+        <button class="primary" (click)="addTransaction()" [disabled]="saving()">Ajouter</button>
+      </div>
+    </div>
+  </section>
+}

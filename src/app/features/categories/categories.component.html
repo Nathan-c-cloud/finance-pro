@@ -1,0 +1,21 @@
+<section class="panel">
+  <h3>Catégories</h3>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <ul class="cat-list">
+    @for (c of data.categories(); track c.id) {
+      <li>
+        <input [ngModel]="c.name" (change)="rename(c.id, $any($event.target).value)" />
+        <button class="delete" (click)="remove(c.id)">✕</button>
+      </li>
+    }
+  </ul>
+
+  <div class="add-cat">
+    <input placeholder="Nouvelle catégorie" [ngModel]="newName()" (ngModelChange)="newName.set($event)" />
+    <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
+  </div>
+</section>

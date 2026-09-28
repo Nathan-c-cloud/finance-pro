@@ -1,0 +1,39 @@
+.fe-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.fe-row {
+  display: grid;
+  grid-template-columns: 1.4fr 90px 1fr 110px 60px 90px 32px;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.fe-row.inactive {
+  opacity: 0.5;
+}
+
+.add-fe h4 {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.add-fe-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.add-fe-form > * {
+  flex: 1 1 130px;
+}
+
+@media (max-width: 720px) {
+  .fe-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
