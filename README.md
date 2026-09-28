@@ -85,6 +85,23 @@ Le script part de la structure du fichier livré par Claude (tables Excel
 de l'onglet Référentiel_Fixes). Si ton fichier a une structure différente,
 vérifie le JSON produit avant de l'importer.
 
+## 4bis. Héberger sur Vercel (gratuit)
+
+Le fichier `vercel.json` à la racine est déjà prêt (build Angular + redirection
+de toutes les routes vers `index.html`, nécessaire pour le routing côté
+client). Aucune variable d'environnement à configurer sur Vercel : les clés
+Supabase sont déjà compilées dans le code (elles sont faites pour être
+publiques, c'est la sécurité RLS côté Supabase qui protège tes données, pas
+cette clé).
+
+1. Va sur [vercel.com](https://vercel.com), connecte toi avec ton compte
+   GitHub.
+2. *Add New > Project*, sélectionne le repo `finance-pro`.
+3. Vercel détecte automatiquement `vercel.json` : laisse les réglages par
+   défaut et clique sur *Deploy*.
+4. Tu obtiens une URL type `finance-pro.vercel.app`, accessible depuis PC et
+   téléphone. Chaque nouveau `git push` sur `main` redéploie automatiquement.
+
 ## 5. Structure du projet
 
 ```
