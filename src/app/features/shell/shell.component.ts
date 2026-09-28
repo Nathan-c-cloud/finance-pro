@@ -26,6 +26,8 @@ export class ShellComponent {
 
   /** Le sélecteur de mois n'a de sens que sur la page Mois. */
   isMoisPage = computed(() => this.url().startsWith('/mois'));
+  /** Pages qui profitent d'une largeur étendue (deux colonnes, grille de cartes). */
+  isWidePage = computed(() => this.isMoisPage() || this.url().startsWith('/categories'));
   showMonthPicker = computed(() => this.isMoisPage() && !!this.data.currentMonth());
 
   shortMonth = formatMonthLabelShort;

@@ -1,26 +1,49 @@
 <section class="panel">
-  <h3>Catégories</h3>
+  <div class="head">
+    <h3>Catégories</h3>
+    <span class="count">{{ data.categories().length }}</span>
 
-  <div class="add-cat">
-    <input
-      placeholder="Nouvelle catégorie"
-      [ngModel]="newName()"
-      (ngModelChange)="newName.set($event)"
-      (keyup.enter)="add()"
-    />
-    <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
+    <div class="add">
+      <input
+        placeholder="Nouvelle catégorie…"
+        [ngModel]="newName()"
+        (ngModelChange)="newName.set($event)"
+        (keyup.enter)="add()"
+      />
+      <button class="primary" (click)="add()" [disabled]="saving()">+ Ajouter</button>
+    </div>
   </div>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
-  <ul class="cat-list">
+  <div class="grid">
     @for (c of data.categories(); track c.id) {
-      <li>
-        <input [ngModel]="c.name" (change)="rename(c.id, $any($event.target).value)" />
-        <button class="delete" (click)="remove(c.id)">✕</button>
-      </li>
+      <div class="card">
+        <span class="dot" [style.background]="dotBackground(c.name)" [style.color]="dotColor(c.name)">
+          {{ initial(c.name) }}
+        </span>
+
+        <div class="txt">
+          <input
+            [ngModel]="c.name"
+            [readonly]="isSavings(c.name)"
+            [attr.aria-label]="'Nom de la catégorie ' + c.name"
+            (change)="rename(c.id, $any($event.target).value)"
+          />
+          <small>{{ usageLabel(c.id) }}</small>
+          @if (isSavings(c.name)) {
+            <span class="lock" title="Cette catégorie sert au calcul de l'épargne, elle ne peut être ni renommée ni supprimée.">
+              🔒 Calcul de l'épargne
+            </span>
+          }
+        </div>
+
+        @if (!isSavings(c.name)) {
+          <button class="delete del" title="Supprimer la catégorie" (click)="remove(c.id)">✕</button>
+        }
+      </div>
     }
-  </ul>
+  </div>
 </section>

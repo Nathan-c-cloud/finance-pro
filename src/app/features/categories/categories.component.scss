@@ -1,30 +1,166 @@
-.add-cat {
+:host {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.panel {
+  padding: 1.25rem;
+  border-radius: 14px;
+}
+
+.head {
   display: flex;
-  gap: 0.5rem;
-  max-width: 400px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
   margin-bottom: 1rem;
 }
 
-.add-cat input {
-  flex: 1;
+.head h3 {
+  margin: 0;
+  font-size: 1.1rem;
 }
 
-.cat-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.count {
+  background: #eaf1fe;
+  color: #2f6feb;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.add {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+  width: min(420px, 100%);
+}
+
+.add input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+}
+
+.add button {
+  border-radius: 12px;
+  padding: 0.55rem 1rem;
+  white-space: nowrap;
+}
+
+.error {
+  margin: 0 0 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.7rem;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #e9ebef;
+  border-radius: 14px;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.card:hover,
+.card:focus-within {
+  border-color: #cdd9f5;
+  box-shadow: 0 4px 14px rgba(47, 111, 235, 0.08);
+}
+
+.dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.txt {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  max-width: 400px;
+  gap: 0.1rem;
+  /* laisse la place à la croix de suppression */
+  padding-right: 1.1rem;
 }
 
-.cat-list li {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
+/* Le nom ressemble à du texte simple et devient un champ au survol ou au clic */
+.txt input {
+  width: 100%;
+  margin-left: -0.3rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: inherit;
 }
 
-.cat-list input {
-  flex: 1;
+.card:hover .txt input:not([readonly]),
+.txt input:not([readonly]):focus {
+  border-color: #d6d8dc;
+  background: #fff;
+}
+
+.txt input[readonly] {
+  cursor: default;
+  outline: none;
+}
+
+small {
+  color: #8a8f98;
+  font-size: 0.75rem;
+}
+
+.lock {
+  width: max-content;
+  max-width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: #fff7d6;
+  color: #8a6d00;
+  font-size: 0.68rem;
+}
+
+.del {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  padding: 0.1rem 0.3rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .del,
+.card:focus-within .del,
+.del:focus {
+  opacity: 1;
+}
+
+/* Pas de survol sur tactile : la croix reste visible */
+@media (hover: none) {
+  .del {
+    opacity: 1;
+  }
 }
