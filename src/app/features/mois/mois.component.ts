@@ -43,6 +43,7 @@ export class MoisComponent {
   form = signal<NewTxForm>(emptyForm('variable'));
   saving = signal(false);
   error = signal<string | null>(null);
+  txError = signal<string | null>(null);
   generating = signal(false);
   info = signal<string | null>(null);
 
@@ -100,11 +101,11 @@ export class MoisComponent {
     const f = this.form();
     if (!cm) return;
     if (!f.name.trim() || f.amount === null || f.amount === undefined) {
-      this.error.set('Merci de renseigner au moins le nom et le montant.');
+      this.txError.set('Merci de renseigner au moins le nom et le montant.');
       return;
     }
     this.saving.set(true);
-    this.error.set(null);
+    this.txError.set(null);
     try {
       await this.data.addTransaction({
         month_id: cm.id,
@@ -119,7 +120,7 @@ export class MoisComponent {
       });
       this.form.set(emptyForm(f.type));
     } catch (e: any) {
-      this.error.set(e?.message ?? "Erreur lors de l'ajout.");
+      this.txError.set(e?.message ?? "Erreur lors de l'ajout.");
     } finally {
       this.saving.set(false);
     }

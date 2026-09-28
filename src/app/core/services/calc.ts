@@ -127,3 +127,10 @@ export function formatMonthLabel(dateStr: string): string {
   const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+
+/** Version courte pour les petits écrans : "sept. 2026". */
+export function formatMonthLabelShort(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const label = d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}

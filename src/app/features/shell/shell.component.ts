@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { DataService } from '../../core/services/data.service';
+import { formatMonthLabelShort } from '../../core/services/calc';
 import { SupabaseService } from '../../core/services/supabase.service';
 
 type OpenMenu = 'nav' | 'months' | 'account' | null;
@@ -24,7 +25,10 @@ export class ShellComponent {
   private url = signal('');
 
   /** Le sélecteur de mois n'a de sens que sur la page Mois. */
-  showMonthPicker = computed(() => this.url().startsWith('/mois') && !!this.data.currentMonth());
+  isMoisPage = computed(() => this.url().startsWith('/mois'));
+  showMonthPicker = computed(() => this.isMoisPage() && !!this.data.currentMonth());
+
+  shortMonth = formatMonthLabelShort;
 
   initial = computed(() => (this.supabase.user()?.email ?? '?').charAt(0).toUpperCase());
 

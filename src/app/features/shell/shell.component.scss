@@ -49,8 +49,14 @@ $muted: #6b7280;
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
   transition:
     height 0.2s ease,
+    max-width 0.2s ease,
     box-shadow 0.2s ease,
     background 0.2s ease;
+}
+
+/* La page Mois passe en deux colonnes : on lui donne plus de largeur. */
+.pill.wide {
+  max-width: 1400px;
 }
 
 .pill.scrolled {
@@ -333,8 +339,40 @@ $muted: #6b7280;
   box-sizing: border-box;
 }
 
-/* ---------- Petits écrans : on garde l'essentiel dans la pilule ---------- */
+.content.wide {
+  max-width: 1400px;
+}
+
+/* ---------- Petits écrans : libellé de mois court pour garder le nom de l'app ---------- */
+.label-short {
+  display: none;
+}
+
 @media (max-width: 480px) {
+  .label-full {
+    display: none;
+  }
+
+  .label-short {
+    display: inline;
+  }
+
+  .month-label {
+    padding: 0 0.25rem;
+    font-size: 0.8rem;
+  }
+
+  .arrow {
+    width: 24px;
+  }
+
+  .brand-name {
+    font-size: 0.95rem;
+  }
+}
+
+/* Très petits écrans (moins de 360 px) : là, seul le logo tient avec le sélecteur. */
+@media (max-width: 359px) {
   .brand-name {
     display: none;
   }

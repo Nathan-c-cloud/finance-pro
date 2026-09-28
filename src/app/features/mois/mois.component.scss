@@ -1,9 +1,43 @@
-.month-header {
+/* ------------------------------------------------------------
+   Deux colonnes : vue rapide à gauche (fixe), transactions à droite.
+   En dessous de 1200 px, retour à une seule colonne.
+   ------------------------------------------------------------ */
+.layout {
+  display: block;
+}
+
+.side-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.side-toolbar .primary {
+  margin-left: auto;
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    display: grid;
+    grid-template-columns: clamp(300px, 24vw, 360px) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  /* Reste collée sous le header pendant que la page défile. */
+  .side {
+    position: sticky;
+    top: 88px;
+    align-self: start;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    /* marge interne pour ne pas rogner les ombres des cartes */
+    padding: 4px;
+    margin: -4px;
+    scrollbar-width: thin;
+  }
 }
 
 select,
@@ -74,18 +108,18 @@ button.link-btn {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .card {
   background: #fff;
   border-radius: 10px;
-  padding: 0.8rem;
+  padding: 0.5rem 0.7rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.15rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -93,13 +127,17 @@ button.link-btn {
   background: #eaf1ff;
 }
 
+.card.wide {
+  grid-column: span 2;
+}
+
 .card .label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #777;
 }
 
 .card .value {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
@@ -124,10 +162,32 @@ button.link-btn {
   font-size: 1rem;
 }
 
+.side .panel {
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.side .panel h3 {
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+}
+
 .panel-header {
   display: flex;
+  flex-wrap: nowrap;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.panel-header h3 {
+  flex: 1;
+}
+
+.panel-header .link-btn {
+  flex: none;
+  padding-top: 0.15rem;
+  white-space: nowrap;
 }
 
 .recon {
@@ -171,14 +231,14 @@ button.link-btn {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.1rem;
 }
 
 .breakdown li {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
-  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  padding: 0.2rem 0;
   border-bottom: 1px dashed #eee;
 }
 
@@ -186,12 +246,11 @@ button.link-btn {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 1rem;
 }
 
 .tx-row {
   display: grid;
-  grid-template-columns: 70px 1.4fr 90px 1fr 130px 110px 32px;
+  grid-template-columns: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
   gap: 0.4rem;
   align-items: center;
   font-size: 0.85rem;
@@ -230,9 +289,23 @@ button.link-btn {
   font-size: 0.85rem;
 }
 
+/* Formulaire d'ajout : en haut de la colonne de droite, toujours à portée */
+.add-tx {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f6f8fc;
+  border: 1px solid #e6ebf5;
+}
+
 .add-tx h4 {
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.add-tx .error {
+  margin: 0.5rem 0 0;
 }
 
 .add-tx-form {
@@ -245,7 +318,39 @@ button.link-btn {
   flex: 1 1 140px;
 }
 
-@media (max-width: 720px) {
+.add-tx-form .f-name {
+  flex: 2 1 200px;
+}
+
+.add-tx-form .f-detail {
+  flex: 1.5 1 160px;
+}
+
+.add-tx-form .f-amount {
+  flex: 0.6 1 100px;
+}
+
+.add-tx-form button {
+  flex: 0 0 auto;
+}
+
+/* Sur grand écran : deux lignes bien alignées (type, nom, montant, catégorie, date / détail, bouton) */
+@media (min-width: 861px) {
+  .add-tx-form {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 2fr) 100px minmax(150px, 1fr) 145px;
+  }
+
+  .add-tx-form .f-detail {
+    grid-column: 1 / span 4;
+  }
+
+  .add-tx-form button {
+    grid-column: 5;
+  }
+}
+
+@media (max-width: 860px) {
   .tx-row {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
