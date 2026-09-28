@@ -4,14 +4,6 @@
   <p>Aucun mois pour l'instant.</p>
 } @else {
   <div class="month-header">
-    <select [ngModel]="data.currentMonth()!.id" (ngModelChange)="onSelectMonth($event)">
-      @for (m of months; track m.id) {
-        <option [value]="m.id">
-          {{ data.monthLabel(m.month_date) }} — {{ m.status === 'current' ? 'Courant' : 'Clôturé' }}
-        </option>
-      }
-    </select>
-
     <button class="status-badge" [class.closed]="data.currentMonth()!.status === 'closed'" (click)="toggleStatus()">
       {{ data.currentMonth()!.status === 'current' ? 'Courant' : 'Clôturé' }}
     </button>

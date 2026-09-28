@@ -52,16 +52,6 @@ export class MoisComponent {
 
   constructor(public data: DataService) {}
 
-  get months() {
-    return this.data.sortedMonths();
-  }
-
-  onSelectMonth(id: string) {
-    this.data.selectMonth(id);
-    this.info.set(null);
-    this.error.set(null);
-  }
-
   async toggleStatus() {
     const cm = this.data.currentMonth();
     if (!cm) return;
