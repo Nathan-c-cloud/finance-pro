@@ -47,24 +47,26 @@
   <div class="fe-table">
     @for (f of data.fixedExpenses(); track f.id) {
       <div class="fe-row" [class.inactive]="!f.active">
-        <input [ngModel]="f.name" (change)="updateName(f.id, $any($event.target).value)" />
+        <input class="fe-name" [ngModel]="f.name" (change)="updateName(f.id, $any($event.target).value)" />
         <input
+          class="fe-amount"
           type="number"
           step="0.01"
           [ngModel]="f.amount"
           (change)="updateAmount(f.id, $any($event.target).value)"
         />
-        <select [ngModel]="f.category_id" (ngModelChange)="updateCategory(f.id, $event)">
+        <select class="fe-cat" [ngModel]="f.category_id" (ngModelChange)="updateCategory(f.id, $event)">
           <option [ngValue]="null">Sans catégorie</option>
           @for (c of data.categories(); track c.id) {
             <option [ngValue]="c.id">{{ c.name }}</option>
           }
         </select>
-        <select [ngModel]="f.frequency" (ngModelChange)="updateFrequency(f.id, $event)">
+        <select class="fe-freq" [ngModel]="f.frequency" (ngModelChange)="updateFrequency(f.id, $event)">
           <option value="monthly">Mensuelle</option>
           <option value="annual">Annuelle</option>
         </select>
         <input
+          class="fe-day"
           type="number"
           min="1"
           max="28"
@@ -72,10 +74,10 @@
           [ngModel]="f.payment_day"
           (change)="updateDay(f.id, $any($event.target).value)"
         />
-        <button class="toggle-chip" [class.on]="f.active" (click)="toggleActive(f.id, f.active)">
+        <button class="toggle-chip fe-toggle" [class.on]="f.active" (click)="toggleActive(f.id, f.active)">
           {{ f.active ? 'Active' : 'Inactive' }}
         </button>
-        <button class="delete" (click)="remove(f.id)">✕</button>
+        <button class="delete fe-del" (click)="remove(f.id)">✕</button>
       </div>
     }
     @if (data.fixedExpenses().length === 0) {

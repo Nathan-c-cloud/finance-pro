@@ -58,8 +58,60 @@
   }
 }
 
+/* Mobile : chaque dépense devient une petite carte rangée sur 4 lignes */
 @media (max-width: 720px) {
+  .fe-table {
+    gap: 0.6rem;
+  }
+
   .fe-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'name name'
+      'amount cat'
+      'freq day'
+      'toggle del';
+    gap: 0.5rem;
+    padding: 0.7rem;
+    border: 1px solid #eceef2;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .fe-row > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .fe-name {
+    grid-area: name;
+  }
+
+  .fe-amount {
+    grid-area: amount;
+  }
+
+  .fe-cat {
+    grid-area: cat;
+  }
+
+  .fe-freq {
+    grid-area: freq;
+  }
+
+  .fe-day {
+    grid-area: day;
+  }
+
+  .fe-toggle {
+    grid-area: toggle;
+    padding: 0.5rem;
+  }
+
+  .fe-del {
+    grid-area: del;
+    justify-self: end;
+    width: auto;
+    padding: 0.4rem 0.6rem;
   }
 }
