@@ -19,27 +19,47 @@
 
     <label>
       Mot de passe
-      <input
-        type="password"
-        name="password"
-        [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
-        [ngModel]="password()"
-        (ngModelChange)="password.set($event)"
-        required
-      />
+      <div class="password-field">
+        <input
+          [type]="showPassword() ? 'text' : 'password'"
+          name="password"
+          [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          required
+        />
+        <button
+          type="button"
+          class="toggle-visibility"
+          (click)="showPassword.set(!showPassword())"
+          [attr.aria-label]="showPassword() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+        >
+          {{ showPassword() ? '🙈' : '👁' }}
+        </button>
+      </div>
     </label>
 
     @if (mode() === 'signup') {
       <label>
         Confirmer le mot de passe
-        <input
-          type="password"
-          name="confirmPassword"
-          autocomplete="new-password"
-          [ngModel]="confirmPassword()"
-          (ngModelChange)="confirmPassword.set($event)"
-          required
-        />
+        <div class="password-field">
+          <input
+            [type]="showConfirmPassword() ? 'text' : 'password'"
+            name="confirmPassword"
+            autocomplete="new-password"
+            [ngModel]="confirmPassword()"
+            (ngModelChange)="confirmPassword.set($event)"
+            required
+          />
+          <button
+            type="button"
+            class="toggle-visibility"
+            (click)="showConfirmPassword.set(!showConfirmPassword())"
+            [attr.aria-label]="showConfirmPassword() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+          >
+            {{ showConfirmPassword() ? '🙈' : '👁' }}
+          </button>
+        </div>
       </label>
     }
 

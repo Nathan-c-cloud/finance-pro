@@ -18,6 +18,8 @@ export class AuthComponent {
   loading = signal(false);
   error = signal<string | null>(null);
   info = signal<string | null>(null);
+  showPassword = signal(false);
+  showConfirmPassword = signal(false);
 
   constructor(
     private supabase: SupabaseService,
