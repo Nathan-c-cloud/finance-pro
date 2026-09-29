@@ -382,6 +382,23 @@ button.recalibrate {
   margin: 0 0 0.6rem;
 }
 
+.late-note {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.toggle .toggle-chip.late {
+  background: var(--color-note-soft);
+  border-color: var(--color-savings-border);
+  color: var(--color-note-text);
+  font-weight: 600;
+}
+
 .tx-head {
   display: grid;
   grid-template-columns: var(--tx-cols);

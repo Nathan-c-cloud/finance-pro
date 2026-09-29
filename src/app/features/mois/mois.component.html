@@ -299,9 +299,22 @@
       />
 
       <p class="hint tx-hint">
-        Statut : « Nécessaire » ou « Optionnel » pour une dépense, « Reçu » ou « À venir » pour un revenu.
+        Statut : « Nécessaire » ou « Optionnel » pour une dépense, « Reçu » ou « À venir » pour un revenu
+        (« À confirmer » : sa date est passée, coche « Reçu » s'il est arrivé).
         Un revenu ne compte dans le solde théorique d'aujourd'hui que s'il est marqué « Reçu ».
       </p>
+
+      @if (lateIncomes().length > 0) {
+        <p class="late-note" role="status">
+          @if (lateIncomes().length === 1) {
+            Le revenu « {{ lateIncomes()[0].name }} » ({{ formatEUR(lateIncomes()[0].amount) }}) a une date passée mais
+            n'est pas coché « Reçu ». Coche le s'il est arrivé : il compte alors dans le solde théorique d'aujourd'hui.
+          } @else {
+            {{ lateIncomes().length }} revenus ({{ formatEUR(lateIncomesTotal()) }} au total) ont une date passée mais ne
+            sont pas cochés « Reçu ». Coche ceux qui sont arrivés : ils comptent alors dans le solde théorique d'aujourd'hui.
+          }
+        </p>
+      }
 
       <div class="tx-head" aria-hidden="true">
         <span>Type</span>
@@ -358,10 +371,11 @@
                 <button
                   class="toggle-chip"
                   [class.on]="t.received"
-                  title="Reçu ou à venir ?"
+                  [class.late]="isLate(t)"
+                  [title]="isLate(t) ? 'La date est passée : coche Reçu si ce revenu est arrivé' : 'Reçu ou à venir ?'"
                   (click)="toggleReceived(t.id, t.received)"
                 >
-                  {{ t.received ? 'Reçu' : 'À venir' }}
+                  {{ t.received ? 'Reçu' : isLate(t) ? 'À confirmer' : 'À venir' }}
                 </button>
               }
             </div>

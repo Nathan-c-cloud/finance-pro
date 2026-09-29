@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
-import { gapClues } from '../../core/services/calc';
+import { gapClues, isLateIncome } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
@@ -85,6 +85,11 @@ export class MoisComponent {
   sortedTransactions = computed<Transaction[]>(() =>
     sortTransactions(this.data.currentMonthTransactions(), this.sortKey(), this.sortDir())
   );
+
+  isLate = isLateIncome;
+  /** Revenus datés dans le passé mais pas cochés "Reçu" (à vérifier). */
+  lateIncomes = computed(() => this.data.currentMonthTransactions().filter((t) => isLateIncome(t)));
+  lateIncomesTotal = computed(() => this.lateIncomes().reduce((acc, t) => acc + t.amount, 0));
 
   editingBalance = signal(false);
   startInput = signal<number | null>(null);

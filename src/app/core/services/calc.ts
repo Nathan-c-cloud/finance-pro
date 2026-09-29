@@ -127,6 +127,16 @@ export function gapClues(transactions: Transaction[], today: Date = new Date()) 
   };
 }
 
+/**
+ * Revenu dont la date est déjà passée (avant aujourd'hui) mais qui n'est pas coché "Reçu" :
+ * probablement à cocher, sinon il fausse le solde théorique d'aujourd'hui.
+ */
+export function isLateIncome(t: Transaction, today: Date = new Date()): boolean {
+  if (t.type !== 'income' || t.received === true || !t.tx_date) return false;
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return new Date(t.tx_date + 'T00:00:00') < startOfToday;
+}
+
 export function addMonths(date: Date, n: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + n, 1);
 }
