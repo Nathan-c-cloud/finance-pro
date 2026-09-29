@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { FixedExpense, Frequency } from '../../core/models/models';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
+import { SearchBoxComponent } from '../../shared/search-box/search-box.component';
+import { matchesSearch } from '../../core/services/search';
 import { formatEUR } from '../../core/services/format';
 import { FREQUENCIES, monthlyShare } from '../../core/services/fixed-expense';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
@@ -23,7 +25,7 @@ function emptyForm(): NewFixedForm {
 @Component({
   selector: 'app-fixed-expenses',
   standalone: true,
-  imports: [CommonModule, FormsModule, SortBarComponent],
+  imports: [CommonModule, FormsModule, SortBarComponent, SearchBoxComponent],
   templateUrl: './fixed-expenses.component.html',
   styleUrl: './fixed-expenses.component.scss',
 })
@@ -64,6 +66,13 @@ export class FixedExpensesComponent {
       key === 'name' ? sign * byName(a, b) : sign * (a.payment_day - b.payment_day) || byName(a, b)
     );
   });
+
+  // Recherche par nom (affichage seulement) : le total actif reste calculé sur toute la liste
+  query = signal('');
+  visibleFixed = computed<FixedExpense[]>(() =>
+    this.sortedFixed().filter((f) => matchesSearch(f.name, this.query()))
+  );
+  searchInfo = computed(() => `${this.visibleFixed().length} sur ${this.data.fixedExpenses().length}`);
 
   toggleSort(key: 'name' | 'day') {
     if (this.sortKey() === key) {

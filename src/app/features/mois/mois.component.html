@@ -295,6 +295,8 @@
         }
       </div>
 
+      <app-search-box [(value)]="query" placeholder="Rechercher une transaction par nom" [info]="searchInfo()" />
+
       <app-sort-bar
         [options]="sortOptions"
         [sortKey]="sortKey()"
@@ -332,7 +334,7 @@
       </div>
 
       <div class="tx-table">
-        @for (t of sortedTransactions(); track t.id) {
+        @for (t of visibleTransactions(); track t.id) {
           <div class="tx-row" [class.income]="t.type === 'income'">
             <span class="tx-type">{{ typeLabel(t.type) }}</span>
             <label class="field tx-name">
@@ -386,6 +388,12 @@
             </div>
             <button class="delete" title="Supprimer" (click)="removeTx(t.id)">✕</button>
           </div>
+        }
+        @if (query() && visibleTransactions().length === 0 && data.currentMonthTransactions().length > 0) {
+          <p class="no-result">
+            Aucune transaction ne correspond à « {{ query() }} ».
+            <button class="link-btn" (click)="query.set('')">Effacer la recherche</button>
+          </p>
         }
         @if (data.currentMonthTransactions().length === 0) {
           <div class="empty-state">

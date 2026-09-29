@@ -66,6 +66,8 @@
     }
   </div>
 
+  <app-search-box [(value)]="query" placeholder="Rechercher une dépense fixe par nom" [info]="searchInfo()" />
+
   <app-sort-bar
     [options]="sortOptions"
     [sortKey]="sortKey()"
@@ -85,7 +87,7 @@
   </div>
 
   <div class="fe-table">
-    @for (f of sortedFixed(); track f.id) {
+    @for (f of visibleFixed(); track f.id) {
       <div class="fe-row" [class.inactive]="!f.active">
         <label class="field fe-name">
           <span class="field-label row-label">Nom</span>
@@ -138,6 +140,12 @@
         </div>
         <button class="delete fe-del" title="Supprimer" (click)="remove(f.id)">✕</button>
       </div>
+    }
+    @if (query() && visibleFixed().length === 0 && data.fixedExpenses().length > 0) {
+      <p class="empty">
+        Aucune dépense fixe ne correspond à « {{ query() }} ».
+        <button class="link-btn" (click)="query.set('')">Effacer la recherche</button>
+      </p>
     }
     @if (data.fixedExpenses().length === 0) {
       <p class="empty">Aucune dépense fixe pour l'instant.</p>

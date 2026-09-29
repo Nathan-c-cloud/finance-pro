@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
@@ -6,6 +6,8 @@ import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
 import { gapClues, isLateIncome } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { SearchBoxComponent } from '../../shared/search-box/search-box.component';
+import { matchesSearch } from '../../core/services/search';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
@@ -50,7 +52,7 @@ function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Tran
 @Component({
   selector: 'app-mois',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent, SearchBoxComponent],
   templateUrl: './mois.component.html',
   styleUrl: './mois.component.scss',
 })
@@ -91,6 +93,15 @@ export class MoisComponent {
   lateIncomes = computed(() => this.data.currentMonthTransactions().filter((t) => isLateIncome(t)));
   lateIncomesTotal = computed(() => this.lateIncomes().reduce((acc, t) => acc + t.amount, 0));
 
+  // Recherche par nom dans les transactions du mois (affichage seulement)
+  query = signal('');
+  visibleTransactions = computed<Transaction[]>(() =>
+    this.sortedTransactions().filter((t) => matchesSearch(t.name, this.query()))
+  );
+  searchInfo = computed(
+    () => `${this.visibleTransactions().length} sur ${this.data.currentMonthTransactions().length}`
+  );
+
   editingBalance = signal(false);
   startInput = signal<number | null>(null);
   realBalanceInput = signal<number | null>(null);
@@ -98,7 +109,13 @@ export class MoisComponent {
 
   private dialog = inject(DialogService);
 
-  constructor(public data: DataService) {}
+  constructor(public data: DataService) {
+    // Changer de mois efface la recherche : on ne veut pas croire qu'un mois est vide parce qu'un filtre reste actif.
+    effect(() => {
+      this.data.currentMonth()?.id;
+      untracked(() => this.query.set(''));
+    });
+  }
 
   async toggleStatus() {
     const cm = this.data.currentMonth();

@@ -383,6 +383,12 @@ button.recalibrate {
   --tx-cols: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
 }
 
+.no-result {
+  margin: 0.5rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
 .tx-hint {
   margin: 0 0 0.6rem;
 }

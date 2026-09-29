@@ -19,6 +19,8 @@ const ICONS: Record<string, string> = {
   'chevron-left': '<path d="m15 18-6-6 6-6" />',
   'chevron-right': '<path d="m9 18 6-6-6-6" />',
   'plus': '<path d="M5 12h14" /><path d="M12 5v14" />',
+  'search': '<path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" />',
+  'x': '<path d="M18 6 6 18" /><path d="m6 6 12 12" />',
 };
 
 export type IconName = keyof typeof ICONS;
