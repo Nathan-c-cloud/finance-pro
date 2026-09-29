@@ -314,7 +314,7 @@ function addMonths(wb: Workbook, s: ExportSnapshot) {
     const income = `IF($B${r}="","",SUMPRODUCT(--(${tx('B')}=$B${r}),--(${tx('C')}="${TYPE_LABELS.income}"),${tx('E')}))`;
     const expenses = `IF($B${r}="","",SUMPRODUCT(--(${tx('B')}=$B${r}),--(${tx('C')}<>"${TYPE_LABELS.income}"),--(${tx('F')}<>${savings}),${tx('E')}))`;
     const sav = `IF($B${r}="","",SUMPRODUCT(--(${tx('B')}=$B${r}),--(${tx('F')}=${savings}),${tx('E')}))`;
-    const rate = `IF($B${r}="","",IF($G${r}>0,$I${r}/$G${r},0))`;
+    const rate = `IF($B${r}="","",IF(AND($G${r}>0,$I${r}<=$G${r}),$I${r}/$G${r},"—"))`;
     const change = `IF($B${r}="","",$G${r}-$H${r}-$I${r})`;
     const end = `IF($B${r}="","",$F${r}+$K${r})`;
     const res = (v: number | undefined) => (m ? v ?? 0 : '');
@@ -328,7 +328,7 @@ function addMonths(wb: Workbook, s: ExportSnapshot) {
       income: { formula: income, result: res(sum?.income) },
       expenses: { formula: expenses, result: res(sum?.expensesExcludingSavings) },
       savings: { formula: sav, result: res(sum?.savings) },
-      rate: { formula: rate, result: res(sum?.savingsRate) },
+      rate: { formula: rate, result: m && sum?.savingsRate === null ? '—' : res(sum?.savingsRate ?? undefined) },
       change: { formula: change, result: res(sum ? sum.computedEndingBalance - sum.startingBalance : undefined) },
       end: { formula: end, result: res(sum?.computedEndingBalance) },
     });

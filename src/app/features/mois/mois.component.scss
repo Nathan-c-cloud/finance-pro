@@ -96,9 +96,14 @@ button.with-icon,
   color: var(--color-note-text);
 }
 
+.rate-note,
 .forced-note {
   font-size: 0.72rem;
   line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.forced-note {
   color: var(--color-note-text);
 }
 

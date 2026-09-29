@@ -69,7 +69,8 @@ export interface MonthSummary {
   computedEndingBalance: number;
   /** Vrai si le solde de fin a été forcé (recalage depuis le mois suivant). */
   endingForced: boolean;
-  savingsRate: number; // 0..1
+  /** Épargne / revenus (0..1), ou null quand il n'a pas de sens : pas de revenus, ou épargne supérieure aux revenus. */
+  savingsRate: number | null;
   /** Dépenses par catégorie, hors catégorie Épargne (comme "Dépenses (hors épargne)"). */
   byCategory: { categoryId: string | null; categoryName: string; amount: number }[];
 }

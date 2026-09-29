@@ -166,7 +166,8 @@ export class DashboardComponent {
         datasets: [
           {
             label: "Taux d'épargne",
-            data: summaries.map((s) => s.savingsRate * 100),
+            // null = taux non défini ce mois là : la courbe a un trou au lieu d'un pic
+            data: summaries.map((s) => (s.savingsRate === null ? null : s.savingsRate * 100)),
             borderColor: SEMANTIC_COLORS.savings,
             backgroundColor: 'rgba(176,122,46,0.15)',
             fill: true,

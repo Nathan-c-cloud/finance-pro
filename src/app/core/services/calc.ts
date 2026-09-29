@@ -46,7 +46,9 @@ export function summarizeMonth(
   const endingForced = forcedEnd !== null;
   const endingBalance = endingForced ? forcedEnd : computedEndingBalance;
   const accountChange = endingBalance - startingBalance;
-  const savingsRate = income > 0 ? savings / income : 0;
+  // Taux d'épargne = épargne / revenus du mois. Non défini (null, affiché "—") quand il n'a pas de sens :
+  // aucun revenu saisi, ou épargne supérieure aux revenus (taux au dessus de 100 %).
+  const savingsRate = income > 0 && savings <= income ? savings / income : null;
 
   const byCategoryMap = new Map<string, { categoryId: string | null; categoryName: string; amount: number }>();
   for (const cat of categories) {
