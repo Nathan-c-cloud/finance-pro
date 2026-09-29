@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Injector, ViewChild, effect } from '@angular/core';
+import { Component, DestroyRef, ElementRef, effect, inject, viewChild } from '@angular/core';
 import { Chart, registerables } from 'chart.js';
 import { DataService } from '../../core/services/data.service';
 import { formatEUR } from '../../core/services/format';
@@ -15,44 +15,49 @@ Chart.defaults.color = '#68736d';
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
-export class DashboardComponent implements AfterViewInit {
-  @ViewChild('balanceCanvas') balanceCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('flowCanvas') flowCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('rateCanvas') rateCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('breakdownCanvas') breakdownCanvas!: ElementRef<HTMLCanvasElement>;
+export class DashboardComponent {
+  // Requêtes "signal" : les canvas n'existent qu'une fois les données chargées (bloc @else du
+  // template). L'effet ci-dessous se relance dès qu'un canvas apparaît, ce qui évite des
+  // graphiques vides quand la page est rechargée directement.
+  private balanceCanvas = viewChild<ElementRef<HTMLCanvasElement>>('balanceCanvas');
+  private flowCanvas = viewChild<ElementRef<HTMLCanvasElement>>('flowCanvas');
+  private rateCanvas = viewChild<ElementRef<HTMLCanvasElement>>('rateCanvas');
+  private breakdownCanvas = viewChild<ElementRef<HTMLCanvasElement>>('breakdownCanvas');
 
   private balanceChart?: Chart;
   private flowChart?: Chart;
   private rateChart?: Chart;
   private breakdownChart?: Chart;
 
-  constructor(
-    public data: DataService,
-    private injector: Injector
-  ) {}
+  constructor(public data: DataService) {
+    effect(() => {
+      const summaries = this.data.allSummaries();
+      const current = this.data.currentSummary();
+      this.renderBalanceChart(summaries, this.balanceCanvas());
+      this.renderFlowChart(summaries, this.flowCanvas());
+      this.renderRateChart(summaries, this.rateCanvas());
+      this.renderBreakdownChart(current, this.breakdownCanvas());
+    });
 
-  ngAfterViewInit() {
-    effect(
-      () => {
-        const summaries = this.data.allSummaries();
-        const current = this.data.currentSummary();
-        this.renderBalanceChart(summaries);
-        this.renderFlowChart(summaries);
-        this.renderRateChart(summaries);
-        this.renderBreakdownChart(current);
-      },
-      { injector: this.injector }
-    );
+    inject(DestroyRef).onDestroy(() => {
+      this.balanceChart?.destroy();
+      this.flowChart?.destroy();
+      this.rateChart?.destroy();
+      this.breakdownChart?.destroy();
+    });
   }
 
   private labels(summaries: ReturnType<DataService['allSummaries']>) {
     return summaries.map((s) => this.data.monthLabel(s.month.month_date));
   }
 
-  private renderBalanceChart(summaries: ReturnType<DataService['allSummaries']>) {
-    if (!this.balanceCanvas) return;
+  private renderBalanceChart(
+    summaries: ReturnType<DataService['allSummaries']>,
+    canvas: ElementRef<HTMLCanvasElement> | undefined
+  ) {
+    if (!canvas) return;
     this.balanceChart?.destroy();
-    this.balanceChart = new Chart(this.balanceCanvas.nativeElement, {
+    this.balanceChart = new Chart(canvas.nativeElement, {
       type: 'line',
       data: {
         labels: this.labels(summaries),
@@ -75,10 +80,13 @@ export class DashboardComponent implements AfterViewInit {
     });
   }
 
-  private renderFlowChart(summaries: ReturnType<DataService['allSummaries']>) {
-    if (!this.flowCanvas) return;
+  private renderFlowChart(
+    summaries: ReturnType<DataService['allSummaries']>,
+    canvas: ElementRef<HTMLCanvasElement> | undefined
+  ) {
+    if (!canvas) return;
     this.flowChart?.destroy();
-    this.flowChart = new Chart(this.flowCanvas.nativeElement, {
+    this.flowChart = new Chart(canvas.nativeElement, {
       type: 'bar',
       data: {
         labels: this.labels(summaries),
@@ -108,10 +116,13 @@ export class DashboardComponent implements AfterViewInit {
     });
   }
 
-  private renderRateChart(summaries: ReturnType<DataService['allSummaries']>) {
-    if (!this.rateCanvas) return;
+  private renderRateChart(
+    summaries: ReturnType<DataService['allSummaries']>,
+    canvas: ElementRef<HTMLCanvasElement> | undefined
+  ) {
+    if (!canvas) return;
     this.rateChart?.destroy();
-    this.rateChart = new Chart(this.rateCanvas.nativeElement, {
+    this.rateChart = new Chart(canvas.nativeElement, {
       type: 'line',
       data: {
         labels: this.labels(summaries),
@@ -134,15 +145,18 @@ export class DashboardComponent implements AfterViewInit {
     });
   }
 
-  private renderBreakdownChart(current: ReturnType<DataService['currentSummary']>) {
-    if (!this.breakdownCanvas || !current) return;
+  private renderBreakdownChart(
+    current: ReturnType<DataService['currentSummary']>,
+    canvas: ElementRef<HTMLCanvasElement> | undefined
+  ) {
+    if (!canvas || !current) return;
     this.breakdownChart?.destroy();
 
     const entries = current.byCategory.filter((b) => b.amount > 0);
     const labels = [...entries.map((e) => e.categoryName)];
     const values = [...entries.map((e) => e.amount)];
 
-    this.breakdownChart = new Chart(this.breakdownCanvas.nativeElement, {
+    this.breakdownChart = new Chart(canvas.nativeElement, {
       type: 'doughnut',
       data: {
         labels,
