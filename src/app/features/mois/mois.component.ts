@@ -294,7 +294,15 @@ export class MoisComponent {
   }
 
   async removeTx(id: string) {
-    await this.data.deleteTransaction(id);
+    const t = this.data.transactions().find((x) => x.id === id);
+    const label = t ? `« ${t.name} » (${formatEUR(t.amount)})` : 'cette transaction';
+    const ok = await this.dialog.confirm({
+      title: 'Supprimer cette transaction ?',
+      message: `${label} sera supprimée définitivement. Les soldes du mois et des mois suivants seront recalculés.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (ok) await this.data.deleteTransaction(id);
   }
 
   /**
