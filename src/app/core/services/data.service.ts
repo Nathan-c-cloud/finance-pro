@@ -8,6 +8,7 @@ import {
   Transaction,
   UserSettings,
 } from '../models/models';
+import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { addMonths, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
@@ -417,110 +418,174 @@ export class DataService {
   }
 
   /**
-   * Import en masse depuis le script Python (Excel -> JSON) : catégories,
-   * dépenses fixes, mois, transactions. Idempotent par nom/date autant que possible.
+   * Applique un plan d'import Excel (voir core/excel/excel-import.ts), par lots.
+   * Ordre : réglage, catégories, mois, dépenses fixes, transactions. Puis tout est rechargé.
+   * - includeDoubtful : identifiants des lignes "à vérifier" que l'utilisateur a cochées ;
+   * - deleteMissing : supprime aussi les lignes de l'application absentes du fichier.
+   * Si une étape échoue, les étapes précédentes restent appliquées : l'erreur le précise.
    */
-  async importFromJson(payload: {
-    categories: string[];
-    fixedExpenses: { name: string; amount: number; category: string; frequency: string; paymentDay: number; active: boolean }[];
-    months: { monthDate: string; status: string; startingBalanceOverride?: number | null; realBalanceCheck?: number | null }[];
-    transactions: { monthDate: string; type: string; name: string; amount: number; category: string | null; txDate: string | null; detail?: string | null; necessary?: boolean | null; received?: boolean | null }[];
-    initialBalance?: number;
-  }) {
+  async applyImportPlan(
+    plan: ImportPlan,
+    opts: { includeDoubtful: ReadonlySet<string>; deleteMissing: boolean }
+  ): Promise<ImportResult> {
     const uid = this.supa.userId!;
+    const db = this.supa.client;
+    const ops = plan.ops;
+    const doubtful = new Set(plan.lines.filter((l) => l.action === 'doubtful').map((l) => l.id));
+    const wanted = (lineId: string) => !doubtful.has(lineId) || opts.includeDoubtful.has(lineId);
+    const result: ImportResult = { created: 0, updated: 0, deleted: 0, skipped: 0 };
+    result.skipped = [...doubtful].filter((id) => !opts.includeDoubtful.has(id)).length;
+    let step = 'réglage';
 
-    // Catégories : n'insère que celles qui manquent
-    const existingNames = new Set(this.categories().map((c) => c.name));
-    const toCreate = payload.categories.filter((n) => !existingNames.has(n));
-    if (toCreate.length > 0) {
-      const base = this.categories().length;
-      const rows = toCreate.map((name, i) => ({ user_id: uid, name, sort_order: base + i }));
-      const { data, error } = await this.supa.client.from('categories').insert(rows).select();
-      if (error) throw error;
-      this.categories.update((list) => [...list, ...((data ?? []) as Category[])]);
-    }
-    const catByName = new Map(this.categories().map((c) => [c.name, c.id]));
-
-    if (payload.initialBalance !== undefined) {
-      await this.updateInitialBalance(payload.initialBalance);
-    }
-
-    // Dépenses fixes (référentiel)
-    if (payload.fixedExpenses.length > 0) {
-      const rows = payload.fixedExpenses.map((f) => ({
-        user_id: uid,
-        name: f.name,
-        amount: f.amount,
-        category_id: catByName.get(f.category) ?? null,
-        frequency: f.frequency === 'annual' ? 'annual' : 'monthly',
-        payment_day: f.paymentDay || 1,
-        active: f.active,
-      }));
-      const { data, error } = await this.supa.client.from('fixed_expenses').insert(rows).select();
-      if (error) throw error;
-      this.fixedExpenses.update((list) => [...list, ...((data ?? []) as FixedExpense[])]);
-    }
-
-    // Mois : crée ceux qui manquent
-    const existingMonthDates = new Set(this.months().map((m) => m.month_date));
-    const monthsToCreate = payload.months.filter((m) => !existingMonthDates.has(m.monthDate));
-    let createdMonths: MonthRow[] = [];
-    if (monthsToCreate.length > 0) {
-      const rows = monthsToCreate.map((m) => ({
-        user_id: uid,
-        month_date: m.monthDate,
-        status: m.status === 'closed' ? 'closed' : 'current',
-        starting_balance_override: m.startingBalanceOverride ?? null,
-        real_balance_check: m.realBalanceCheck ?? null,
-      }));
-      const { data, error } = await this.supa.client.from('months').insert(rows).select();
-      if (error) throw error;
-      createdMonths = (data ?? []) as MonthRow[];
-      this.months.update((list) => [...list, ...createdMonths]);
-    }
-    const monthIdByDate = new Map(this.months().map((m) => [m.month_date, m.id]));
-
-    // Une seule ligne "current" : si l'import a créé/ré-importé plusieurs mois,
-    // force les mois antérieurs au plus récent à 'closed'.
-    const allDates = [...this.months().map((m) => m.month_date)].sort();
-    const latestDate = allDates[allDates.length - 1];
-    for (const m of this.months()) {
-      if (m.month_date !== latestDate && m.status === 'current') {
-        await this.setMonthStatus(m.id, 'closed');
+    try {
+      if (ops.initialBalance !== null) {
+        await this.updateInitialBalance(ops.initialBalance);
+        result.updated++;
       }
-    }
 
-    // Transactions
-    if (payload.transactions.length > 0) {
-      const rows = payload.transactions
-        .map((t) => {
-          const monthId = monthIdByDate.get(t.monthDate);
-          if (!monthId) return null;
+      step = 'catégories';
+      if (ops.createCategories.length > 0) {
+        const base = this.categories().length;
+        const rows = ops.createCategories.map((name, i) => ({ user_id: uid, name, sort_order: base + i }));
+        const { data, error } = await db.from('categories').insert(rows).select();
+        if (error) throw error;
+        this.categories.update((list) => [...list, ...((data ?? []) as Category[])]);
+        result.created += rows.length;
+      }
+      const catId = (name: string | null | undefined) =>
+        name ? this.categories().find((c) => nameKey(c.name) === nameKey(name))?.id ?? null : null;
+
+      step = 'mois';
+      if (ops.createMonths.length > 0) {
+        const rows = ops.createMonths.map((m) => ({
+          user_id: uid,
+          month_date: m.key + '-01',
+          status: m.status,
+          starting_balance_override: m.override,
+          real_balance_check: m.real,
+        }));
+        const { data, error } = await db.from('months').insert(rows).select();
+        if (error) throw error;
+        this.months.update((list) => [...list, ...((data ?? []) as MonthRow[])]);
+        result.created += rows.length;
+      }
+      for (const u of ops.updateMonths) {
+        const { error } = await db.from('months').update(u.patch).eq('id', u.id);
+        if (error) throw error;
+        result.updated++;
+      }
+      const monthIdByKey = new Map(this.months().map((m) => [m.month_date.slice(0, 7), m.id]));
+
+      step = 'dépenses fixes';
+      const newFixed = ops.createFixed.filter((o) => wanted(o.lineId));
+      for (const part of chunk(newFixed, 200)) {
+        const rows = part.map((o) => ({
+          user_id: uid,
+          name: o.data.name,
+          amount: o.data.amount,
+          category_id: catId(o.data.categoryName),
+          frequency: o.data.frequency,
+          payment_day: o.data.payment_day,
+          active: o.data.active,
+        }));
+        const { error } = await db.from('fixed_expenses').insert(rows);
+        if (error) throw error;
+        result.created += rows.length;
+      }
+      const fixedById = new Map(this.fixedExpenses().map((f) => [f.id, f]));
+      const fixedRows = ops.updateFixed
+        .map((u) => {
+          const cur = fixedById.get(u.id);
+          if (!cur) return null;
+          const { categoryName, ...rest } = u.patch;
+          return { ...cur, ...rest, ...('categoryName' in u.patch ? { category_id: catId(categoryName) } : {}) };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      for (const part of chunk(fixedRows, 200)) {
+        const { error } = await db.from('fixed_expenses').upsert(part, { onConflict: 'id' });
+        if (error) throw error;
+        result.updated += part.length;
+      }
+      if (opts.deleteMissing) {
+        for (const part of chunk(ops.deleteFixed, 50)) {
+          const { error } = await db.from('fixed_expenses').delete().in('id', part.map((d) => d.id));
+          if (error) throw error;
+          result.deleted += part.length;
+        }
+      }
+
+      step = 'transactions';
+      const monthId = (key: string) => {
+        const id = monthIdByKey.get(key);
+        if (!id) throw new Error(`Mois ${key} introuvable.`);
+        return id;
+      };
+      const newTx = ops.createTx.filter((o) => wanted(o.lineId));
+      for (const part of chunk(newTx, 300)) {
+        const rows = part.map((o) => ({
+          user_id: uid,
+          month_id: monthId(o.data.monthKey),
+          type: o.data.type,
+          name: o.data.name,
+          amount: o.data.amount,
+          category_id: catId(o.data.categoryName),
+          tx_date: o.data.tx_date,
+          detail: o.data.detail,
+          necessary: o.data.necessary,
+          received: o.data.received,
+        }));
+        const { error } = await db.from('transactions').insert(rows);
+        if (error) throw error;
+        result.created += rows.length;
+      }
+      const txById = new Map(this.transactions().map((t) => [t.id, t]));
+      const txRows = ops.updateTx
+        .map((u) => {
+          const cur = txById.get(u.id);
+          if (!cur) return null;
+          const { monthKey, categoryName, ...rest } = u.patch;
           return {
-            user_id: uid,
-            month_id: monthId,
-            type: t.type as 'fixed' | 'variable' | 'income',
-            name: t.name,
-            amount: t.amount,
-            category_id: t.category ? catByName.get(t.category) ?? null : null,
-            tx_date: t.txDate,
-            detail: t.detail ?? null,
-            necessary: t.necessary ?? null,
-            received: t.received ?? null,
+            ...cur,
+            ...rest,
+            ...(monthKey !== undefined ? { month_id: monthId(monthKey) } : {}),
+            ...('categoryName' in u.patch ? { category_id: catId(categoryName) } : {}),
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
-
-      if (rows.length > 0) {
-        const { data, error } = await this.supa.client.from('transactions').insert(rows).select();
+      for (const part of chunk(txRows, 300)) {
+        const { error } = await db.from('transactions').upsert(part, { onConflict: 'id' });
         if (error) throw error;
-        this.transactions.update((list) => [...list, ...((data ?? []) as Transaction[])]);
+        result.updated += part.length;
       }
+      if (opts.deleteMissing) {
+        for (const part of chunk(ops.deleteTx, 50)) {
+          const { error } = await db.from('transactions').delete().in('id', part.map((d) => d.id));
+          if (error) throw error;
+          result.deleted += part.length;
+        }
+      }
+      return result;
+    } catch (e: any) {
+      const done = `${result.created} ajoutée(s), ${result.updated} modifiée(s), ${result.deleted} supprimée(s) avant l'erreur`;
+      throw new Error(`Import interrompu à l'étape « ${step} » : ${e?.message ?? e}. (${done}.)`);
+    } finally {
+      await this.loadAll();
     }
-
-    const current = this.months().find((m) => m.status === 'current');
-    if (current) this.currentMonth.set(current);
   }
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  deleted: number;
+  /** Lignes "à vérifier" laissées de côté. */
+  skipped: number;
+}
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
 }
 
 /** Clé de comparaison de deux noms : sans majuscules, accents ni espaces autour. */

@@ -1,8 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
-import { Frequency } from '../../core/models/models';
+import { FixedExpense, Frequency } from '../../core/models/models';
+import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { formatEUR } from '../../core/services/format';
 import { FREQUENCIES, monthlyShare } from '../../core/services/fixed-expense';
 
@@ -21,7 +22,7 @@ function emptyForm(): NewFixedForm {
 @Component({
   selector: 'app-fixed-expenses',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SortBarComponent],
   templateUrl: './fixed-expenses.component.html',
   styleUrl: './fixed-expenses.component.scss',
 })
@@ -32,6 +33,45 @@ export class FixedExpensesComponent {
   form = signal<NewFixedForm>(emptyForm());
   saving = signal(false);
   error = signal<string | null>(null);
+
+  // Tri de la liste (affichage seulement). Sans choix : ordre de création.
+  sortOptions = [
+    { key: 'name', label: 'Nom' },
+    { key: 'day', label: 'Jour de prélèvement' },
+  ];
+  sortKey = signal<'name' | 'day' | null>(null);
+  sortDir = signal<SortDir>('asc');
+  sortHint = computed(() => {
+    const asc = this.sortDir() === 'asc';
+    switch (this.sortKey()) {
+      case 'name':
+        return asc ? 'de A à Z' : 'de Z à A';
+      case 'day':
+        return asc ? 'du 1er au 28' : 'du 28 au 1er';
+      default:
+        return 'ordre de création';
+    }
+  });
+  sortedFixed = computed<FixedExpense[]>(() => {
+    const key = this.sortKey();
+    const list = this.data.fixedExpenses();
+    if (!key) return list;
+    const sign = this.sortDir() === 'asc' ? 1 : -1;
+    const byName = (a: FixedExpense, b: FixedExpense) =>
+      a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true });
+    return [...list].sort((a, b) =>
+      key === 'name' ? sign * byName(a, b) : sign * (a.payment_day - b.payment_day) || byName(a, b)
+    );
+  });
+
+  toggleSort(key: 'name' | 'day') {
+    if (this.sortKey() === key) {
+      this.sortDir.update((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
+    }
+  }
 
   constructor(public data: DataService) {}
 

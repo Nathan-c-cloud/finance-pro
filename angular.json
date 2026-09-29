@@ -37,7 +37,10 @@
             "styles": [
               "src/styles.scss"
             ],
-            "scripts": []
+            "scripts": [],
+            "allowedCommonJsDependencies": [
+              "exceljs"
+            ]
           },
           "configurations": {
             "production": {

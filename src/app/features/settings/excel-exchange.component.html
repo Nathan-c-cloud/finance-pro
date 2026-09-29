@@ -1,0 +1,162 @@
+<section class="panel">
+  <h3>Échange avec Excel</h3>
+  <p class="hint">
+    Télécharge toutes tes données dans un classeur Excel aux couleurs de l'application, remplis-le où tu
+    veux (même sans connexion), puis réimporte-le. Un aperçu s'affiche avant tout changement.
+  </p>
+
+  <div class="xl-actions">
+    <button class="primary" (click)="exportExcel()" [disabled]="exporting()">
+      {{ exporting() ? 'Préparation...' : "Télécharger l'export Excel" }}
+    </button>
+    <button (click)="fileInput.click()" [disabled]="reading() || applying()">
+      {{ reading() ? 'Lecture...' : 'Importer un fichier Excel' }}
+    </button>
+    <input
+      #fileInput
+      type="file"
+      hidden
+      accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      (change)="onFile($event)"
+    />
+  </div>
+
+  @if (exportError()) {
+    <p class="error">{{ exportError() }}</p>
+  }
+  @if (readError()) {
+    <p class="error">{{ readError() }}</p>
+  }
+  @if (applyError()) {
+    <p class="error">{{ applyError() }}</p>
+  }
+  @if (done()) {
+    <p class="info">{{ done() }}</p>
+  }
+
+  @if (plan(); as p) {
+    <div class="preview">
+      <div class="preview-head">
+        <h4>Aperçu de l'import</h4>
+        <span class="file">{{ fileName() }}</span>
+      </div>
+
+      @if (errors().length > 0) {
+        <div class="box error-box">
+          <strong>{{ errors().length }} erreur(s) à corriger dans Excel. Rien n'a été importé.</strong>
+          <ul>
+            @for (i of errors(); track $index) {
+              <li><span class="where">{{ where(i) }}</span> {{ i.message }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (warnings().length > 0) {
+        <div class="box warn-box">
+          <strong>{{ warnings().length }} avertissement(s)</strong>
+          <ul>
+            @for (i of warnings(); track $index) {
+              <li><span class="where">{{ where(i) }}</span> {{ i.message }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (errors().length === 0) {
+        <div class="chips">
+          <span class="chip create">{{ creates().length }} à ajouter</span>
+          <span class="chip update">{{ updates().length }} à modifier</span>
+          <span class="chip">{{ p.unchanged }} sans changement</span>
+          @if (doubtful().length > 0) {
+            <span class="chip doubt">{{ doubtful().length }} à vérifier</span>
+          }
+          @if (deletes().length > 0) {
+            <span class="chip del">{{ deletes().length }} absente(s) du fichier</span>
+          }
+        </div>
+
+        @if (p.lines.length === 0 && errors().length === 0) {
+          <p class="info">Rien à importer : le fichier correspond déjà à l'application.</p>
+        }
+
+        <ng-template #lineList let-items>
+          <ul class="lines">
+            @for (l of items; track l.id) {
+              <li>
+                <span class="entity">{{ l.entity }}</span>
+                <span class="line-main">
+                  <strong>{{ l.title }}</strong>
+                  <span class="line-detail">{{ l.detail }}</span>
+                </span>
+                <span class="line-where">{{ l.row ? 'ligne ' + l.row : '' }}</span>
+              </li>
+            }
+          </ul>
+        </ng-template>
+
+        @if (creates().length > 0) {
+          <h5>À ajouter</h5>
+          <ng-container *ngTemplateOutlet="lineList; context: { $implicit: creates() }" />
+        }
+
+        @if (updates().length > 0) {
+          <h5>À modifier</h5>
+          <ng-container *ngTemplateOutlet="lineList; context: { $implicit: updates() }" />
+        }
+
+        @if (doubtful().length > 0) {
+          <h5 class="doubt-title">À vérifier : ressemble à une ligne déjà présente</h5>
+          <p class="hint">
+            Ces lignes n'ont pas d'identifiant et ressemblent à des lignes existantes. Elles ne sont pas
+            importées, sauf si tu les coches.
+          </p>
+          <label class="check-all">
+            <input
+              type="checkbox"
+              [checked]="includeDoubtful().size === doubtful().length"
+              (change)="toggleAllDoubtful($any($event.target).checked)"
+            />
+            Tout importer quand même
+          </label>
+          <ul class="lines doubt">
+            @for (l of doubtful(); track l.id) {
+              <li>
+                <input type="checkbox" [checked]="includeDoubtful().has(l.id)" (change)="toggleDoubtful(l.id)" />
+                <span class="entity">{{ l.entity }}</span>
+                <span class="line-main">
+                  <strong>{{ l.title }}</strong>
+                  <span class="line-detail">{{ l.detail }}</span>
+                </span>
+                <span class="line-where">{{ l.row ? 'ligne ' + l.row : '' }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (deletes().length > 0) {
+          <h5>Absentes du fichier</h5>
+          <label class="check-all">
+            <input type="checkbox" [checked]="deleteMissing()" (change)="deleteMissing.set($any($event.target).checked)" />
+            Supprimer ces {{ deletes().length }} ligne(s) de l'application
+          </label>
+          <p class="hint">Par défaut, une ligne absente du fichier est conservée.</p>
+          <div [class.dimmed]="!deleteMissing()">
+            <ng-container *ngTemplateOutlet="lineList; context: { $implicit: deletes() }" />
+          </div>
+        }
+      }
+
+      <div class="preview-actions">
+        @if (errors().length === 0) {
+          <button class="primary" (click)="apply()" [disabled]="toApply() === 0 || applying()">
+            {{ applying() ? 'Import en cours...' : "Appliquer l'import (" + toApply() + ' changement(s))' }}
+          </button>
+        }
+        <button class="ghost" (click)="cancel()" [disabled]="applying()">
+          {{ errors().length > 0 ? 'Fermer' : 'Annuler' }}
+        </button>
+      </div>
+    </div>
+  }
+</section>

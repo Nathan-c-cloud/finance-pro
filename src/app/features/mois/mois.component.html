@@ -240,24 +240,13 @@
         }
       </div>
 
-      <div class="sort-bar" role="group" aria-label="Trier les transactions">
-        <span class="sort-label">Trier par</span>
-        @for (o of sortOptions; track o.key) {
-          <button
-            type="button"
-            class="sort-chip"
-            [class.active]="sortKey() === o.key"
-            [attr.aria-pressed]="sortKey() === o.key"
-            (click)="toggleSort(o.key)"
-          >
-            {{ o.label }}
-            @if (sortKey() === o.key) {
-              <app-icon [name]="sortDir() === 'asc' ? 'arrow-up' : 'arrow-down'" [strokeWidth]="2.4" />
-            }
-          </button>
-        }
-        <span class="sort-hint">{{ sortHint() }}</span>
-      </div>
+      <app-sort-bar
+        [options]="sortOptions"
+        [sortKey]="sortKey()"
+        [dir]="sortDir()"
+        [hint]="sortHint()"
+        (toggled)="toggleSort($any($event))"
+      />
 
       <div class="tx-table">
         @for (t of sortedTransactions(); track t.id) {

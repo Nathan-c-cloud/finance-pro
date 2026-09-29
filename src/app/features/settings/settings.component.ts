@@ -1,14 +1,15 @@
-import { Component, signal } from '@angular/core';
+import { Component, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { ExcelExchangeComponent } from './excel-exchange.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ExcelExchangeComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -23,7 +24,12 @@ export class SettingsComponent {
     public supabase: SupabaseService,
     private router: Router
   ) {
-    this.initialBalanceInput.set(this.data.settings()?.initial_balance ?? 0);
+    // Suit la valeur enregistrée : sur un chargement direct de la page, les réglages arrivent après
+    // la création du composant, et le champ affichait 0 (un clic sur Enregistrer l'aurait écrasée).
+    effect(() => {
+      const s = this.data.settings();
+      if (s) this.initialBalanceInput.set(s.initial_balance);
+    });
   }
 
   async saveInitialBalance() {
@@ -45,38 +51,5 @@ export class SettingsComponent {
   async logout() {
     await this.supabase.signOut();
     this.router.navigateByUrl('/connexion');
-  }
-
-  // ------------------------------------------------------------
-  // Import depuis Excel (fichier JSON produit par scripts/excel_to_json.py)
-  // ------------------------------------------------------------
-  importing = signal(false);
-  importInfo = signal<string | null>(null);
-  importError = signal<string | null>(null);
-
-  async onImportFile(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    this.importing.set(true);
-    this.importInfo.set(null);
-    this.importError.set(null);
-    try {
-      const text = await file.text();
-      const payload = JSON.parse(text);
-      if (!Array.isArray(payload.categories) || !Array.isArray(payload.transactions)) {
-        throw new Error("Ce fichier ne ressemble pas à un export généré par excel_to_json.py.");
-      }
-      await this.data.importFromJson(payload);
-      this.importInfo.set(
-        `Import terminé : ${payload.categories.length} catégories, ${payload.fixedExpenses?.length ?? 0} dépenses fixes, ${payload.months?.length ?? 0} mois, ${payload.transactions.length} transactions.`
-      );
-    } catch (e: any) {
-      this.importError.set(e?.message ?? "Erreur lors de l'import.");
-    } finally {
-      this.importing.set(false);
-      input.value = '';
-    }
   }
 }

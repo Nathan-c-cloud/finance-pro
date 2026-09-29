@@ -5,6 +5,7 @@ import { DataService } from '../../core/services/data.service';
 import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
 
 interface NewTxForm {
@@ -32,7 +33,6 @@ function emptyForm(type: TxType): NewTxForm {
 }
 
 type SortKey = 'date' | 'name';
-type SortDir = 'asc' | 'desc';
 
 /** Tri stable : à critère égal, l'ordre d'origine (par date) est conservé. Sans date : en premier en croissant. */
 function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Transaction[] {
@@ -48,7 +48,7 @@ function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Tran
 @Component({
   selector: 'app-mois',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent],
   templateUrl: './mois.component.html',
   styleUrl: './mois.component.scss',
 })

@@ -51,8 +51,16 @@
     }
   </div>
 
+  <app-sort-bar
+    [options]="sortOptions"
+    [sortKey]="sortKey()"
+    [dir]="sortDir()"
+    [hint]="sortHint()"
+    (toggled)="toggleSort($any($event))"
+  />
+
   <div class="fe-table">
-    @for (f of data.fixedExpenses(); track f.id) {
+    @for (f of sortedFixed(); track f.id) {
       <div class="fe-row" [class.inactive]="!f.active">
         <input class="fe-name" [ngModel]="f.name" (change)="updateName(f.id, $any($event.target).value)" />
         <input

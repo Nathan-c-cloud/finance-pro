@@ -30,19 +30,4 @@
   </div>
 </section>
 
-<section class="panel">
-  <h3>Importer depuis Excel</h3>
-  <p class="hint">
-    Génère d'abord le fichier JSON avec <code>python3 scripts/excel_to_json.py ton_fichier.xlsm</code>,
-    puis sélectionne-le ici. Les catégories, mois et transactions déjà présents ne sont pas dupliqués.
-  </p>
-
-  @if (importError()) {
-    <p class="error">{{ importError() }}</p>
-  }
-  @if (importInfo()) {
-    <p class="info">{{ importInfo() }}</p>
-  }
-
-  <input type="file" accept="application/json" (change)="onImportFile($event)" [disabled]="importing()" />
-</section>
+<app-excel-exchange />
