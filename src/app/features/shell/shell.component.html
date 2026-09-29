@@ -16,56 +16,13 @@
 
       <div class="right">
         @if (showMonthPicker()) {
-          <div class="month-picker">
-            <button
-              class="arrow"
-              type="button"
-              aria-label="Mois précédent"
-              [disabled]="!prevMonth()"
-              (click)="goToMonth(prevMonth()!.id)"
-            >
-              <app-icon name="chevron-left" />
-            </button>
-            <button
-              class="month-label"
-              type="button"
-              aria-haspopup="listbox"
-              [attr.aria-expanded]="open() === 'months'"
-              (click)="toggle('months')"
-            >
-              <span class="label-full">{{ data.monthLabel(data.currentMonth()!.month_date) }}</span>
-              <span class="label-short">{{ shortMonth(data.currentMonth()!.month_date) }}</span>
-            </button>
-            <button
-              class="arrow"
-              type="button"
-              aria-label="Mois suivant"
-              [disabled]="!nextMonth()"
-              (click)="goToMonth(nextMonth()!.id)"
-            >
-              <app-icon name="chevron-right" />
-            </button>
-
-            @if (open() === 'months') {
-              <div class="popover months-list" role="listbox">
-                @for (m of monthsDesc(); track m.id) {
-                  <button
-                    type="button"
-                    role="option"
-                    class="month-option"
-                    [class.selected]="m.id === data.currentMonth()?.id"
-                    [attr.aria-selected]="m.id === data.currentMonth()?.id"
-                    (click)="goToMonth(m.id)"
-                  >
-                    <span>{{ data.monthLabel(m.month_date) }}</span>
-                    <span class="tag" [class.closed]="m.status === 'closed'">
-                      {{ m.status === 'current' ? 'Courant' : 'Clôturé' }}
-                    </span>
-                  </button>
-                }
-              </div>
-            }
-          </div>
+          <app-month-picker
+            [months]="data.sortedMonths()"
+            [selectedId]="data.currentMonth()?.id ?? null"
+            [open]="open() === 'months'"
+            (openChange)="onMonthsOpenChange($event)"
+            (monthSelected)="goToMonth($event)"
+          />
         }
 
         <div class="account">

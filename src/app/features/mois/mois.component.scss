@@ -229,6 +229,11 @@ button.with-icon,
   gap: 1rem;
 }
 
+/* Avec une longue légende, l'anneau reste en haut plutôt que centré au milieu de la liste */
+.breakdown-wrap.top {
+  align-items: flex-start;
+}
+
 .donut {
   flex: none;
   width: 96px;

@@ -17,8 +17,25 @@
       <canvas #rateCanvas></canvas>
     </div>
     <div class="panel">
-      <h3>Répartition du mois en cours</h3>
-      <canvas #breakdownCanvas></canvas>
+      <div class="panel-head">
+        <h3>Répartition par catégorie</h3>
+        <app-month-picker
+          [months]="data.sortedMonths()"
+          [selectedId]="breakdownMonthId()"
+          (monthSelected)="chooseBreakdownMonth($event)"
+        />
+      </div>
+      @if (hasBreakdown()) {
+        <canvas #breakdownCanvas></canvas>
+      } @else {
+        <div class="ring-empty">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="46" /></svg>
+          <div>
+            <strong>Aucune donnée pour {{ breakdownMonthLabel() }}</strong>
+            <p>Ajoutez des transactions pour voir la répartition.</p>
+          </div>
+        </div>
+      }
     </div>
   </div>
 }

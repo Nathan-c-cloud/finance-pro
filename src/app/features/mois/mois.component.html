@@ -134,7 +134,7 @@
         <section class="panel">
           <h3>Répartition par catégorie</h3>
           @let d = donutView(s.byCategory);
-          <div class="breakdown-wrap">
+          <div class="breakdown-wrap" [class.top]="d.legend.length > 0">
             <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des dépenses par catégorie">
               <circle class="donut-track" cx="60" cy="60" r="46" />
               @for (seg of d.segments; track seg.id) {
@@ -148,7 +148,7 @@
                   [attr.stroke-dasharray]="seg.dash"
                   [attr.stroke-dashoffset]="seg.offset"
                 >
-                  <title>{{ seg.name }} : {{ formatEUR(seg.amount) }}</title>
+                  <title>{{ seg.name }} : {{ formatEUR(seg.amount) }}{{ seg.detail ? ' (' + seg.detail + ')' : '' }}</title>
                 </circle>
               }
             </svg>

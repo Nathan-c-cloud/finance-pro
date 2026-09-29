@@ -126,58 +126,6 @@ $muted: var(--color-text-secondary);
   margin-left: auto;
 }
 
-/* ---------- Sélecteur de mois ---------- */
-.month-picker {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid $line;
-  border-radius: 12px;
-  background: var(--color-surface);
-}
-
-.month-picker > button {
-  border: none;
-  background: none;
-  border-radius: 10px;
-  padding: 0;
-  color: $text;
-  font-family: inherit;
-}
-
-.arrow {
-  width: 28px;
-  height: 32px;
-  font-size: 1.2rem;
-  line-height: 1;
-  color: $text;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.arrow:hover:not(:disabled) {
-  background: var(--color-hover);
-}
-
-.arrow:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.month-label {
-  padding: 0 0.4rem;
-  height: 32px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.month-label:hover {
-  background: var(--color-hover);
-}
-
 /* ---------- Avatar (desktop) ---------- */
 .account {
   position: relative;
@@ -228,53 +176,6 @@ $muted: var(--color-text-secondary);
   border-radius: 16px;
   box-shadow: 0 12px 32px rgba(23, 32, 28, 0.16);
   padding: 0.4rem;
-}
-
-.months-list {
-  right: 0;
-  min-width: 220px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.month-option {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
-  padding: 0.5rem 0.65rem;
-  border: none;
-  border-radius: 10px;
-  background: none;
-  text-align: left;
-  font-size: 0.88rem;
-  text-transform: capitalize;
-}
-
-.month-option:hover {
-  background: var(--color-hover);
-}
-
-.month-option.selected {
-  background: $blue-soft;
-  color: $text;
-  font-weight: 700;
-}
-
-.tag {
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: var(--color-income-soft);
-  color: var(--color-income);
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: none;
-}
-
-.tag.closed {
-  background: var(--color-neutral-soft);
-  color: var(--color-neutral-text);
 }
 
 .account-menu {
@@ -340,29 +241,8 @@ $muted: var(--color-text-secondary);
   max-width: 1400px;
 }
 
-/* ---------- Petits écrans : libellé de mois court pour garder le nom de l'app ---------- */
-.label-short {
-  display: none;
-}
-
+/* ---------- Petits écrans ---------- */
 @media (max-width: 480px) {
-  .label-full {
-    display: none;
-  }
-
-  .label-short {
-    display: inline;
-  }
-
-  .month-label {
-    padding: 0 0.25rem;
-    font-size: 0.8rem;
-  }
-
-  .arrow {
-    width: 24px;
-  }
-
   .brand-name {
     font-size: 0.95rem;
   }

@@ -3,16 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { DataService } from '../../core/services/data.service';
-import { formatMonthLabelShort } from '../../core/services/calc';
 import { SupabaseService } from '../../core/services/supabase.service';
-import { IconComponent } from '../../shared/icon/icon.component';
+import { MonthPickerComponent } from '../../shared/month-picker/month-picker.component';
 
 type OpenMenu = 'nav' | 'months' | 'account' | null;
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MonthPickerComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -31,23 +30,7 @@ export class ShellComponent {
   isWidePage = computed(() => this.isMoisPage() || this.url().startsWith('/categories'));
   showMonthPicker = computed(() => this.isMoisPage() && !!this.data.currentMonth());
 
-  shortMonth = formatMonthLabelShort;
-
   initial = computed(() => (this.supabase.user()?.email ?? '?').charAt(0).toUpperCase());
-
-  monthsDesc = computed(() => [...this.data.sortedMonths()].reverse());
-
-  prevMonth = computed(() => {
-    const list = this.data.sortedMonths();
-    const i = list.findIndex((m) => m.id === this.data.currentMonth()?.id);
-    return i > 0 ? list[i - 1] : null;
-  });
-
-  nextMonth = computed(() => {
-    const list = this.data.sortedMonths();
-    const i = list.findIndex((m) => m.id === this.data.currentMonth()?.id);
-    return i >= 0 && i < list.length - 1 ? list[i + 1] : null;
-  });
 
   constructor(
     public supabase: SupabaseService,
@@ -85,6 +68,12 @@ export class ShellComponent {
 
   toggle(menu: Exclude<OpenMenu, null>) {
     this.open.update((current) => (current === menu ? null : menu));
+  }
+
+  /** Un seul menu ouvert à la fois : la liste des mois s'ouvre ou se ferme via le sélecteur. */
+  onMonthsOpenChange(isOpen: boolean) {
+    if (isOpen) this.open.set('months');
+    else if (this.open() === 'months') this.open.set(null);
   }
 
   goToMonth(id: string) {

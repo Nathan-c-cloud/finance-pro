@@ -19,3 +19,42 @@
 canvas {
   max-height: 280px;
 }
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel-head h3 {
+  margin: 0;
+}
+
+/* Carte sans donnée : même anneau gris que sur la page Mois */
+.ring-empty {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 0.25rem;
+  font-size: 0.9rem;
+}
+
+.ring-empty svg {
+  flex: none;
+  width: 96px;
+  height: 96px;
+}
+
+.ring-empty circle {
+  fill: none;
+  stroke: var(--color-neutral-border);
+  stroke-width: 14;
+}
+
+.ring-empty p {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-secondary);
+}

@@ -1,0 +1,52 @@
+@if (selected(); as current) {
+  <div class="month-picker">
+    <button
+      class="arrow"
+      type="button"
+      aria-label="Mois précédent"
+      [disabled]="!prev()"
+      (click)="choose(prev()!.id)"
+    >
+      <app-icon name="chevron-left" />
+    </button>
+    <button
+      class="month-label"
+      type="button"
+      aria-haspopup="listbox"
+      [attr.aria-expanded]="open()"
+      (click)="toggle()"
+    >
+      <span class="label-full">{{ full(current.month_date) }}</span>
+      <span class="label-short">{{ short(current.month_date) }}</span>
+    </button>
+    <button
+      class="arrow"
+      type="button"
+      aria-label="Mois suivant"
+      [disabled]="!next()"
+      (click)="choose(next()!.id)"
+    >
+      <app-icon name="chevron-right" />
+    </button>
+
+    @if (open()) {
+      <div class="months-list" role="listbox">
+        @for (m of monthsDesc(); track m.id) {
+          <button
+            type="button"
+            role="option"
+            class="month-option"
+            [class.selected]="m.id === current.id"
+            [attr.aria-selected]="m.id === current.id"
+            (click)="choose(m.id)"
+          >
+            <span>{{ full(m.month_date) }}</span>
+            <span class="tag" [class.closed]="m.status === 'closed'">
+              {{ m.status === 'current' ? 'Courant' : 'Clôturé' }}
+            </span>
+          </button>
+        }
+      </div>
+    }
+  </div>
+}

@@ -1,8 +1,10 @@
-import { Component, DestroyRef, ElementRef, effect, inject, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Chart, registerables } from 'chart.js';
 import { DataService } from '../../core/services/data.service';
 import { formatEUR } from '../../core/services/format';
-import { SEMANTIC_COLORS, categoryColor } from '../../core/theme/chart-colors';
+import { buildBreakdown } from '../../core/services/breakdown';
+import { SEMANTIC_COLORS } from '../../core/theme/chart-colors';
+import { MonthPickerComponent } from '../../shared/month-picker/month-picker.component';
 
 Chart.register(...registerables);
 Chart.defaults.font.family = "'Figtree Variable', -apple-system, 'Segoe UI', sans-serif";
@@ -11,7 +13,7 @@ Chart.defaults.color = '#68736d';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [],
+  imports: [MonthPickerComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -29,14 +31,40 @@ export class DashboardComponent {
   private rateChart?: Chart;
   private breakdownChart?: Chart;
 
+  /**
+   * Mois affiché dans la carte "Répartition par catégorie". Propre à cette carte : le changer ici
+   * ne change pas le mois de la page Mois. Sans choix, on prend le mois marqué "Courant".
+   */
+  private chosenMonthId = signal<string | null>(null);
+  private defaultMonthId = computed(() => {
+    const months = this.data.sortedMonths();
+    return (months.find((m) => m.status === 'current') ?? months[months.length - 1])?.id ?? null;
+  });
+  breakdownMonthId = computed(() => {
+    const id = this.chosenMonthId();
+    return id && this.data.sortedMonths().some((m) => m.id === id) ? id : this.defaultMonthId();
+  });
+  private breakdownSummary = computed(
+    () => this.data.allSummaries().find((s) => s.month.id === this.breakdownMonthId()) ?? null
+  );
+  breakdown = computed(() => buildBreakdown(this.breakdownSummary()?.byCategory ?? []));
+  hasBreakdown = computed(() => this.breakdown().slices.length > 0);
+  breakdownMonthLabel = computed(() => {
+    const s = this.breakdownSummary();
+    return s ? this.data.monthLabel(s.month.month_date) : '';
+  });
+
+  chooseBreakdownMonth(id: string) {
+    this.chosenMonthId.set(id);
+  }
+
   constructor(public data: DataService) {
     effect(() => {
       const summaries = this.data.allSummaries();
-      const current = this.data.currentSummary();
       this.renderBalanceChart(summaries, this.balanceCanvas());
       this.renderFlowChart(summaries, this.flowCanvas());
       this.renderRateChart(summaries, this.rateCanvas());
-      this.renderBreakdownChart(current, this.breakdownCanvas());
+      this.renderBreakdownChart(this.breakdown(), this.breakdownCanvas());
     });
 
     inject(DestroyRef).onDestroy(() => {
@@ -146,24 +174,23 @@ export class DashboardComponent {
   }
 
   private renderBreakdownChart(
-    current: ReturnType<DataService['currentSummary']>,
+    breakdown: ReturnType<typeof buildBreakdown>,
     canvas: ElementRef<HTMLCanvasElement> | undefined
   ) {
-    if (!canvas || !current) return;
+    // Le canvas disparaît quand le mois choisi n'a aucune dépense : on détruit alors l'ancien graphique.
     this.breakdownChart?.destroy();
-
-    const entries = current.byCategory.filter((b) => b.amount > 0);
-    const labels = [...entries.map((e) => e.categoryName)];
-    const values = [...entries.map((e) => e.amount)];
+    this.breakdownChart = undefined;
+    const slices = breakdown.slices;
+    if (!canvas || slices.length === 0) return;
 
     this.breakdownChart = new Chart(canvas.nativeElement, {
       type: 'doughnut',
       data: {
-        labels,
+        labels: slices.map((s) => s.name),
         datasets: [
           {
-            data: values,
-            backgroundColor: labels.map((_, i) => categoryColor(i)),
+            data: slices.map((s) => s.amount),
+            backgroundColor: slices.map((s) => s.color),
             borderColor: '#ffffff',
             borderWidth: 2,
           },
@@ -171,7 +198,19 @@ export class DashboardComponent {
       },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'bottom' } },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => formatEUR(Number(ctx.parsed)),
+              // Pour la part "Petites catégories" : le détail des catégories regroupées
+              afterLabel: (ctx) =>
+                (slices[ctx.dataIndex].grouped ?? []).map(
+                  (g) => `  ${g.categoryName} : ${formatEUR(g.amount)}`
+                ),
+            },
+          },
+        },
       },
     });
   }
