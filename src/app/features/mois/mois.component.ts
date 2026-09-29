@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
@@ -7,6 +7,7 @@ import { formatEUR, formatPercent } from '../../core/services/format';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
+import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 
 interface NewTxForm {
   type: TxType;
@@ -85,8 +86,11 @@ export class MoisComponent {
   );
 
   editingBalance = signal(false);
-  balanceOverrideInput = signal<number | null>(null);
+  startInput = signal<number | null>(null);
   realBalanceInput = signal<number | null>(null);
+  balanceError = signal<string | null>(null);
+
+  private dialog = inject(DialogService);
 
   constructor(public data: DataService) {}
 
@@ -151,21 +155,83 @@ export class MoisComponent {
 
   startEditBalance() {
     const cm = this.data.currentMonth();
-    this.balanceOverrideInput.set(cm?.starting_balance_override ?? null);
+    const info = this.data.startInfo();
+    this.startInput.set(info?.value ?? null);
     this.realBalanceInput.set(cm?.real_balance_check ?? null);
+    this.balanceError.set(null);
     this.editingBalance.set(true);
   }
 
-  async saveBalanceOverride() {
+  async saveBalance() {
     const cm = this.data.currentMonth();
-    if (!cm) return;
-    await this.data.setStartingBalanceOverride(cm.id, this.balanceOverrideInput());
-    await this.data.setRealBalanceCheck(cm.id, this.realBalanceInput());
-    this.editingBalance.set(false);
+    const info = this.data.startInfo();
+    if (!cm || !info) return;
+    this.balanceError.set(null);
+    try {
+      // Seul le premier mois se saisit ici : les autres reportent le mois précédent (ou se recalent via le bouton dédié).
+      if (info.isFirst && this.startInput() !== null && this.startInput() !== info.value) {
+        await this.data.setMonthStart(cm.id, this.startInput());
+      }
+      await this.data.setRealBalanceCheck(cm.id, this.realBalanceInput());
+      this.editingBalance.set(false);
+    } catch (e: any) {
+      this.balanceError.set(e?.message ?? "Erreur lors de l'enregistrement.");
+    }
   }
 
-  clearOverride() {
-    this.balanceOverrideInput.set(null);
+  /** Écart non nul (au centime près) entre le solde réel constaté et le solde théorique. */
+  hasGap(gap: number | null): gap is number {
+    return gap !== null && Math.abs(gap) >= 0.005;
+  }
+
+  gapHelp(gap: number): string {
+    const amount = formatEUR(Math.abs(gap));
+    return gap < 0
+      ? `Ton compte a ${amount} de moins que prévu : une dépense est peut être oubliée. Ajoute la, ou recale le solde de début.`
+      : `Ton compte a ${amount} de plus que prévu : un revenu est peut être oublié, ou une dépense est trop élevée. Corrige la, ou recale le solde de début.`;
+  }
+
+  /** Calcule le solde de début qui ramène l'écart à zéro, puis demande confirmation avant de l'appliquer. */
+  async recalibrate() {
+    const cm = this.data.currentMonth();
+    const info = this.data.startInfo();
+    const r = this.data.reconciliation();
+    if (!cm || !info || !r || !this.hasGap(r.gap)) return;
+    const newStart = Math.round((info.value + r.gap) * 100) / 100;
+    const change = `Le solde de début passera de ${formatEUR(info.value)} à ${formatEUR(newStart)}, pour que le solde théorique corresponde à ton solde réel.`;
+    const consequence = info.isFirst
+      ? 'Les mois suivants partiront de ce nouveau solde.'
+      : `${this.data.monthLabel(cm.month_date)} ne reprendra plus automatiquement le solde de fin de ${info.prevLabel}, et les mois suivants partiront de ce nouveau solde.`;
+    const ok = await this.dialog.confirm({
+      title: 'Recaler le solde de début ?',
+      message: `${change}\n${consequence}`,
+      confirmLabel: 'Recaler',
+    });
+    if (!ok) return;
+    this.balanceError.set(null);
+    try {
+      await this.data.setMonthStart(cm.id, newStart);
+    } catch (e: any) {
+      this.balanceError.set(e?.message ?? 'Erreur lors du recalage.');
+    }
+  }
+
+  async revertToAuto() {
+    const cm = this.data.currentMonth();
+    const info = this.data.startInfo();
+    if (!cm || !info || !info.forced || info.auto === null) return;
+    const ok = await this.dialog.confirm({
+      title: 'Revenir au report automatique ?',
+      message: `Le solde de début de ${this.data.monthLabel(cm.month_date)} redeviendra ${formatEUR(info.auto)}, le solde de fin de ${info.prevLabel}.\nLe solde théorique de ce mois et des mois suivants sera recalculé.`,
+      confirmLabel: 'Revenir au report',
+    });
+    if (!ok) return;
+    this.balanceError.set(null);
+    try {
+      await this.data.setMonthStart(cm.id, null);
+    } catch (e: any) {
+      this.balanceError.set(e?.message ?? 'Erreur lors du changement.');
+    }
   }
 
   async addTransaction() {

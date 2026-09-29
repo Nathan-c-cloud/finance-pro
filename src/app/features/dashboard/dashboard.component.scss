@@ -1,3 +1,28 @@
+.forced-notice {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.forced-notice ul {
+  margin: 0.35rem 0;
+  padding-left: 1.1rem;
+}
+
+.forced-notice p {
+  margin: 0;
+}
+
+.forced-notice .link-btn {
+  color: var(--color-note-text);
+  text-decoration: underline;
+  font-size: 0.85rem;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

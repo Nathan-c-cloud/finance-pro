@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
@@ -6,6 +6,7 @@ import { FixedExpense, Frequency } from '../../core/models/models';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { formatEUR } from '../../core/services/format';
 import { FREQUENCIES, monthlyShare } from '../../core/services/fixed-expense';
+import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 
 interface NewFixedForm {
   name: string;
@@ -72,6 +73,8 @@ export class FixedExpensesComponent {
       this.sortDir.set('asc');
     }
   }
+
+  private dialog = inject(DialogService);
 
   constructor(public data: DataService) {}
 
@@ -144,8 +147,12 @@ export class FixedExpensesComponent {
   }
 
   async remove(id: string) {
-    if (confirm('Supprimer cette dépense fixe du référentiel ? Les mois déjà créés ne seront pas modifiés.')) {
-      await this.data.deleteFixedExpense(id);
-    }
+    const ok = await this.dialog.confirm({
+      title: 'Supprimer cette dépense fixe ?',
+      message: 'Elle sera retirée du référentiel. Les mois déjà créés ne seront pas modifiés.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (ok) await this.data.deleteFixedExpense(id);
   }
 }

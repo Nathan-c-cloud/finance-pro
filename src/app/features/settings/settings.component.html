@@ -4,30 +4,4 @@
   <button class="ghost" (click)="logout()">Se déconnecter</button>
 </section>
 
-<section class="panel">
-  <h3>Solde initial</h3>
-  <p class="hint">
-    Le solde bancaire réel au tout début du suivi (avant le premier mois enregistré). Les mois
-    suivants reportent automatiquement le solde de fin du mois précédent, sauf si tu forces une
-    valeur pour un mois précis dans la page "Mois".
-  </p>
-
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
-  @if (info()) {
-    <p class="info">{{ info() }}</p>
-  }
-
-  <div class="balance-form">
-    <input
-      type="number"
-      step="0.01"
-      [ngModel]="initialBalanceInput()"
-      (ngModelChange)="initialBalanceInput.set($event)"
-    />
-    <button class="primary" (click)="saveInitialBalance()" [disabled]="saving()">Enregistrer</button>
-  </div>
-</section>
-
 <app-excel-exchange />

@@ -92,6 +92,46 @@ export class DataService {
     return { theoretical, real, gap };
   });
 
+  /** Le premier mois du suivi : son solde de début est le "solde initial" (il n'a pas de mois précédent). */
+  isFirstMonth(id: string): boolean {
+    return this.sortedMonths()[0]?.id === id;
+  }
+
+  /** D'où vient le solde de début du mois affiché : report automatique, valeur forcée, ou solde de départ du suivi. */
+  readonly startInfo = computed(() => {
+    const cm = this.currentMonth();
+    if (!cm) return null;
+    const list = this.allSummaries();
+    const i = list.findIndex((s) => s.month.id === cm.id);
+    if (i < 0) return null;
+    const prev = i > 0 ? list[i - 1] : null;
+    const override = list[i].month.starting_balance_override;
+    const forced = prev !== null && override !== null && override !== undefined;
+    const value = list[i].startingBalance;
+    const auto = prev ? prev.endingBalance : null;
+    return {
+      isFirst: prev === null,
+      value,
+      forced,
+      auto,
+      gap: forced && auto !== null ? Math.round((value - auto) * 100) / 100 : 0,
+      prevLabel: prev ? this.monthLabel(prev.month.month_date) : null,
+    };
+  });
+
+  /** Mois (hors premier) dont le solde de début est forcé : la chaîne des soldes y repart d'une valeur saisie. */
+  readonly forcedMonths = computed(() => {
+    const list = this.allSummaries();
+    const out: { month: MonthRow; forced: number; auto: number; gap: number }[] = [];
+    for (let i = 1; i < list.length; i++) {
+      const o = list[i].month.starting_balance_override;
+      if (o === null || o === undefined) continue;
+      const auto = list[i - 1].endingBalance;
+      out.push({ month: list[i].month, forced: o, auto, gap: Math.round((o - auto) * 100) / 100 });
+    }
+    return out;
+  });
+
   constructor(private supa: SupabaseService) {
     effect(() => {
       const uid = this.supa.userId;
@@ -308,6 +348,22 @@ export class DataService {
     );
     const cm = this.currentMonth();
     if (cm?.id === id) this.currentMonth.set({ ...cm, starting_balance_override: value });
+  }
+
+  /**
+   * Fixe le solde de début d'un mois. Un seul chemin pour toute l'app :
+   * pour le premier mois c'est le solde initial du suivi, sinon une valeur forcée (null = report automatique).
+   */
+  async setMonthStart(id: string, value: number | null) {
+    if (this.isFirstMonth(id)) {
+      if (value !== null) await this.updateInitialBalance(value);
+      const first = this.months().find((m) => m.id === id);
+      if (first && first.starting_balance_override !== null && first.starting_balance_override !== undefined) {
+        await this.setStartingBalanceOverride(id, null);
+      }
+      return;
+    }
+    await this.setStartingBalanceOverride(id, value);
   }
 
   async setRealBalanceCheck(id: string, value: number | null) {

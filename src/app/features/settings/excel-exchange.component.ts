@@ -1,6 +1,7 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../../core/services/data.service';
+import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 import { buildWorkbookBlob } from '../../core/excel/excel-export';
 import { ImportPlan, Issue, PlanLine, buildImportPlan, parseWorkbook } from '../../core/excel/excel-import';
 
@@ -48,6 +49,8 @@ export class ExcelExchangeComponent {
       this.doubtful().filter((l) => this.includeDoubtful().has(l.id)).length +
       (this.deleteMissing() ? this.deletes().length : 0)
   );
+
+  private dialog = inject(DialogService);
 
   constructor(private data: DataService) {}
 
@@ -140,7 +143,15 @@ export class ExcelExchangeComponent {
     const plan = this.plan();
     if (!plan || this.errors().length > 0) return;
     const deleting = this.deleteMissing() ? this.deletes().length : 0;
-    if (deleting > 0 && !confirm(`Supprimer définitivement ${deleting} ligne(s) de l'application ?`)) return;
+    if (deleting > 0) {
+      const ok = await this.dialog.confirm({
+        title: `Supprimer ${deleting} ligne(s) ?`,
+        message: "Ces lignes seront supprimées définitivement de l'application. Cette action est irréversible.",
+        confirmLabel: 'Supprimer et importer',
+        danger: true,
+      });
+      if (!ok) return;
+    }
 
     this.applying.set(true);
     this.applyError.set(null);

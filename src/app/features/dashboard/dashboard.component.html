@@ -3,6 +3,22 @@
 } @else if (data.allSummaries().length === 0) {
   <p>Pas encore de données à afficher.</p>
 } @else {
+  @if (data.forcedMonths().length > 0) {
+    <div class="forced-notice" role="status">
+      <strong>Solde de début forcé</strong>
+      <ul>
+        @for (f of data.forcedMonths(); track f.month.id) {
+          <li>
+            {{ data.monthLabel(f.month.month_date) }} : forcé à {{ eur(f.forced) }}, le report automatique donnerait
+            {{ eur(f.auto) }}.
+            <button class="link-btn" (click)="openMonth(f.month.id)">Voir le mois</button>
+          </li>
+        }
+      </ul>
+      <p>La courbe du solde repart de cette valeur, et les modifications des mois précédents ne s'y répercutent plus.</p>
+    </div>
+  }
+
   <div class="grid">
     <div class="panel">
       <h3>Évolution du solde théorique de fin de mois</h3>

@@ -1,7 +1,8 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
+import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 
 @Component({
   selector: 'app-categories',
@@ -26,6 +27,8 @@ export class CategoriesComponent {
     }
     return counts;
   });
+
+  private dialog = inject(DialogService);
 
   constructor(public data: DataService) {}
 
@@ -94,11 +97,14 @@ export class CategoriesComponent {
     const inUse =
       this.data.fixedExpenses().some((f) => f.category_id === id) ||
       this.data.transactions().some((t) => t.category_id === id);
-    const msg = inUse
-      ? 'Cette catégorie est utilisée par des dépenses fixes ou des transactions existantes, qui resteront mais deviendront "sans catégorie" visuellement. Continuer ?'
-      : 'Supprimer cette catégorie ?';
-    if (confirm(msg)) {
-      await this.data.deleteCategory(id);
-    }
+    const ok = await this.dialog.confirm({
+      title: 'Supprimer cette catégorie ?',
+      message: inUse
+        ? 'Elle est utilisée par des dépenses fixes ou des transactions existantes. Elles resteront, mais deviendront "sans catégorie".'
+        : 'Cette catégorie n\'est utilisée par aucune dépense.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (ok) await this.data.deleteCategory(id);
   }
 }

@@ -31,7 +31,12 @@
         <section class="cards">
           <div class="card">
             <div class="card-text">
-              <span class="label">Solde début</span>
+              <span class="label">
+                Solde début
+                @if (data.startInfo()?.forced) {
+                  <span class="badge-forced" title="Ce solde est forcé : il ne reprend pas le solde de fin du mois précédent">Forcé</span>
+                }
+              </span>
               <span class="value">{{ formatEUR(s.startingBalance) }}</span>
             </div>
             <span class="card-icon"><app-icon name="wallet" /></span>
@@ -88,30 +93,65 @@
             }
           </div>
 
+          @if (balanceError()) {
+            <p class="error">{{ balanceError() }}</p>
+          }
+
           @if (!editingBalance()) {
             @if (data.reconciliation(); as r) {
-              <div class="recon">
-                <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
-                <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
-                @if (r.gap !== null) {
-                  <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">
-                    Écart : <strong>{{ formatEUR(r.gap) }}</strong>
+              @if (data.startInfo(); as si) {
+                <div class="recon">
+                  <span>
+                    Solde de début : <strong>{{ formatEUR(si.value) }}</strong>
+                    @if (si.forced) {
+                      <span class="badge-forced">Forcé</span>
+                    }
                   </span>
+                  <small class="recon-note">
+                    @if (si.isFirst) {
+                      Solde de départ du suivi, avant le premier mois.
+                    } @else if (si.forced) {
+                      {{ si.prevLabel }} finit à {{ formatEUR(si.auto!) }}. Écart avec le report automatique :
+                      {{ formatEUR(si.gap) }}.
+                    } @else {
+                      Report automatique du solde de fin de {{ si.prevLabel }}.
+                    }
+                  </small>
+                  @if (si.forced) {
+                    <button class="link-btn revert" (click)="revertToAuto()">Revenir au report automatique</button>
+                  }
+                  <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
+                  <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
+                  @if (r.gap !== null) {
+                    <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">
+                      Écart : <strong>{{ formatEUR(r.gap) }}</strong>
+                    </span>
+                  }
+                </div>
+                @if (hasGap(r.gap)) {
+                  <p class="gap-help">{{ gapHelp(r.gap) }}</p>
+                  <button class="recalibrate" (click)="recalibrate()">Recaler le solde de début</button>
                 }
-              </div>
+              }
             }
           } @else {
             <div class="edit-balance">
-              <label>
-                Solde de départ forcé (laisser vide = automatique, reporté du mois précédent)
-                <input
-                  type="number"
-                  step="0.01"
-                  [ngModel]="balanceOverrideInput()"
-                  (ngModelChange)="balanceOverrideInput.set($event)"
-                  placeholder="Automatique"
-                />
-              </label>
+              @if (data.startInfo()?.isFirst) {
+                <label>
+                  Solde de départ du suivi (avant le premier mois)
+                  <input
+                    type="number"
+                    step="0.01"
+                    [ngModel]="startInput()"
+                    (ngModelChange)="startInput.set($event)"
+                  />
+                </label>
+              } @else {
+                <p class="hint">
+                  Le solde de début reprend celui de fin du mois précédent. Pour le corriger, renseigne le solde réel puis
+                  utilise le bouton « Recaler le solde de début ».
+                </p>
+              }
               <label>
                 Solde réel constaté (rapprochement bancaire)
                 <input
@@ -123,8 +163,7 @@
                 />
               </label>
               <div class="actions">
-                <button class="ghost" (click)="clearOverride()">Effacer l'override</button>
-                <button class="primary" (click)="saveBalanceOverride()">Enregistrer</button>
+                <button class="primary" (click)="saveBalance()">Enregistrer</button>
                 <button class="ghost" (click)="editingBalance.set(false)">Annuler</button>
               </div>
             </div>

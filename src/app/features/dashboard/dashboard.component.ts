@@ -1,4 +1,5 @@
 import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { DataService } from '../../core/services/data.service';
 import { formatEUR } from '../../core/services/format';
@@ -53,6 +54,14 @@ export class DashboardComponent {
     const s = this.breakdownSummary();
     return s ? this.data.monthLabel(s.month.month_date) : '';
   });
+
+  eur = formatEUR;
+  private router = inject(Router);
+
+  openMonth(id: string) {
+    this.data.selectMonth(id);
+    this.router.navigateByUrl('/mois');
+  }
 
   chooseBreakdownMonth(id: string) {
     this.chosenMonthId.set(id);

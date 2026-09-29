@@ -208,6 +208,44 @@ button.with-icon,
   color: var(--color-expense);
 }
 
+.badge-forced {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.recon-note {
+  margin-top: -0.15rem;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.recon .revert {
+  align-self: flex-start;
+  font-size: 0.8rem;
+}
+
+.gap-help {
+  margin: 0.7rem 0 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+button.recalibrate {
+  width: 100%;
+}
+
 .edit-balance {
   display: flex;
   flex-direction: column;
