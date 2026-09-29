@@ -1,3 +1,24 @@
+:host {
+  /* Mêmes colonnes pour la ligne de titres, le formulaire d'ajout et chaque dépense */
+  --fe-cols: 1.3fr 90px 1fr 150px 96px 90px 32px;
+}
+
+.fe-head {
+  display: grid;
+  grid-template-columns: var(--fe-cols);
+  gap: 0.4rem;
+  align-items: end;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  line-height: 1.2;
+}
+
+.fe-head span {
+  padding-left: 0.6rem;
+}
+
 .fe-table {
   display: flex;
   flex-direction: column;
@@ -6,7 +27,7 @@
 
 .fe-row {
   display: grid;
-  grid-template-columns: 1.3fr 90px 1fr 150px 60px 90px 32px;
+  grid-template-columns: var(--fe-cols);
   gap: 0.4rem;
   align-items: center;
   font-size: 0.85rem;
@@ -25,10 +46,7 @@
 }
 
 .fe-freq {
-  display: flex;
-  flex-direction: column;
   gap: 0.15rem;
-  min-width: 0;
 }
 
 .fe-freq select {
@@ -82,8 +100,9 @@
 @media (min-width: 721px) {
   .add-fe-form {
     display: grid;
-    grid-template-columns: 1.3fr 90px 1fr 150px 60px 90px 32px;
+    grid-template-columns: var(--fe-cols);
     gap: 0.4rem;
+    align-items: end;
   }
 
   .add-fe-form button {
@@ -93,6 +112,20 @@
 
 /* Mobile : chaque dépense devient une petite carte rangée sur 4 lignes */
 @media (max-width: 720px) {
+  .fe-head {
+    display: none;
+  }
+
+  /* Sur mobile, chaque champ de la carte affiche son titre */
+  .row-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
   .fe-table {
     gap: 0.6rem;
   }
@@ -138,11 +171,15 @@
 
   .fe-toggle {
     grid-area: toggle;
+  }
+
+  .fe-toggle button {
     padding: 0.5rem;
   }
 
   .fe-row .fe-del {
     grid-area: del;
+    align-self: end;
     justify-self: end;
     width: auto;
     padding: 0.4rem 0.6rem;

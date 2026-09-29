@@ -206,6 +206,39 @@ select {
   background-size: 1rem;
 }
 
+/* Champ avec son titre au dessus (formulaires d'ajout, cartes sur mobile) */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.field > input,
+.field > select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+}
+
+/* Titre d'un champ de ligne : caché à l'écran sur grand écran (la ligne de titres du dessus le remplace),
+   mais lu par les lecteurs d'écran. Chaque page l'affiche à nouveau en mode carte sur mobile. */
+.row-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .panel {
   background: var(--color-surface);
   border-radius: var(--radius-lg);

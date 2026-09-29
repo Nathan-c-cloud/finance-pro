@@ -318,6 +318,29 @@ button.with-icon,
   margin: 0;
 }
 
+:host {
+  /* Mêmes colonnes pour la ligne de titres et pour chaque transaction */
+  --tx-cols: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
+}
+
+.tx-hint {
+  margin: 0 0 0.6rem;
+}
+
+.tx-head {
+  display: grid;
+  grid-template-columns: var(--tx-cols);
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tx-head span:not(:first-child):not(:last-child) {
+  padding-left: 0.75rem;
+}
+
 .tx-table {
   display: flex;
   flex-direction: column;
@@ -326,7 +349,7 @@ button.with-icon,
 
 .tx-row {
   display: grid;
-  grid-template-columns: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
+  grid-template-columns: var(--tx-cols);
   gap: 0.4rem;
   align-items: center;
   font-size: 0.85rem;
@@ -467,6 +490,7 @@ button.with-icon,
   .add-tx-form {
     display: grid;
     grid-template-columns: 160px minmax(0, 2fr) 100px minmax(150px, 1fr) 145px;
+    align-items: end;
   }
 
   .add-tx-form .f-detail {
@@ -479,6 +503,20 @@ button.with-icon,
 }
 
 @media (max-width: 860px) {
+  .tx-head {
+    display: none;
+  }
+
+  /* Sur mobile, chaque champ de la carte affiche son titre */
+  .row-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
   /* Formulaire d'ajout : champs pleine largeur, montant et catégorie côte à côte */
   .add-tx-form > * {
     flex: 1 1 100%;
@@ -533,8 +571,11 @@ button.with-icon,
   .tx-date {
     grid-area: date;
   }
-  .toggle-chip {
+  .toggle {
     grid-area: toggle;
+  }
+
+  .toggle .toggle-chip {
     padding: 0.5rem;
   }
 }
