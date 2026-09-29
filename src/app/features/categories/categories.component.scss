@@ -23,8 +23,8 @@
 }
 
 .count {
-  background: #eaf1fe;
-  color: #2f6feb;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
   font-size: 0.78rem;
@@ -67,9 +67,9 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 0.85rem;
-  border: 1px solid #e9ebef;
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  background: #fff;
+  background: var(--color-surface);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -77,8 +77,8 @@
 
 .card:hover,
 .card:focus-within {
-  border-color: #cdd9f5;
-  box-shadow: 0 4px 14px rgba(47, 111, 235, 0.08);
+  border-color: var(--color-primary-border);
+  box-shadow: 0 4px 14px rgba(36, 91, 99, 0.1);
 }
 
 .dot {
@@ -118,8 +118,8 @@
 
 .card:hover .txt input:not([readonly]),
 .txt input:not([readonly]):focus {
-  border-color: #d6d8dc;
-  background: #fff;
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
 }
 
 .txt input[readonly] {
@@ -128,7 +128,7 @@
 }
 
 small {
-  color: #8a8f98;
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
 }
 
@@ -138,8 +138,8 @@ small {
   margin-top: 0.2rem;
   padding: 0.05rem 0.5rem;
   border-radius: 999px;
-  background: #fff7d6;
-  color: #8a6d00;
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
   font-size: 0.68rem;
 }
 

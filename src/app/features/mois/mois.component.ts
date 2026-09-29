@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { categoryColor } from '../../core/theme/chart-colors';
 
 interface NewTxForm {
   type: TxType;
@@ -32,7 +34,7 @@ function emptyForm(type: TxType): NewTxForm {
 @Component({
   selector: 'app-mois',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './mois.component.html',
   styleUrl: './mois.component.scss',
 })
@@ -157,6 +159,52 @@ export class MoisComponent {
 
   async removeTx(id: string) {
     await this.data.deleteTransaction(id);
+  }
+
+  /**
+   * Données de l'anneau "Répartition par catégorie" et de sa légende.
+   * L'anneau ne montre que les montants positifs ; la légende garde toutes les
+   * lignes non nulles, comme l'ancienne liste. Les couleurs suivent l'ordre fixe
+   * de la palette (au-delà de 6 catégories : gris).
+   */
+  donutView(byCategory: { categoryId: string | null; categoryName: string; amount: number }[]) {
+    const R = 46;
+    const C = 2 * Math.PI * R;
+    const GAP = 2.5;
+
+    const positives = byCategory.filter((b) => b.amount > 0);
+    const total = positives.reduce((sum, b) => sum + b.amount, 0);
+    // La couleur suit la position de la catégorie dans la liste complète (et non son rang
+    // parmi les montants non nuls) : une catégorie garde sa couleur d'un mois à l'autre.
+    const colorOf = new Map<string, string>();
+    byCategory.forEach((b, i) => colorOf.set(String(b.categoryId), categoryColor(i)));
+
+    let cursor = 0;
+    const segments = positives.map((b) => {
+      const length = (b.amount / total) * C;
+      const visible = positives.length > 1 ? Math.max(length - GAP, 0.5) : length;
+      const seg = {
+        id: String(b.categoryId),
+        name: b.categoryName,
+        amount: b.amount,
+        color: colorOf.get(String(b.categoryId))!,
+        dash: `${visible} ${C - visible}`,
+        offset: -cursor,
+      };
+      cursor += length;
+      return seg;
+    });
+
+    const legend = byCategory
+      .filter((b) => b.amount !== 0)
+      .map((b) => ({
+        id: String(b.categoryId),
+        name: b.categoryName,
+        amount: b.amount,
+        color: colorOf.get(String(b.categoryId)) ?? '#8f8a7e',
+      }));
+
+    return { segments, legend };
   }
 
   categoryName(id: string | null): string {

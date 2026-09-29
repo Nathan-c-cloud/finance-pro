@@ -5,13 +5,14 @@ import { filter } from 'rxjs';
 import { DataService } from '../../core/services/data.service';
 import { formatMonthLabelShort } from '../../core/services/calc';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 type OpenMenu = 'nav' | 'months' | 'account' | null;
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })

@@ -12,6 +12,18 @@
   font-size: 0.85rem;
 }
 
+.add-fe-form input,
+.add-fe-form select,
+.fe-row input,
+.fe-row select {
+  padding-left: 0.6rem;
+}
+
+.add-fe-form input,
+.fe-row input {
+  padding-right: 0.6rem;
+}
+
 .fe-row.inactive {
   opacity: 0.5;
 }
@@ -20,15 +32,15 @@
 .add-fe {
   margin-bottom: 1rem;
   padding: 0.75rem;
-  border-radius: 10px;
-  background: #f6f8fc;
-  border: 1px solid #e6ebf5;
+  border-radius: 14px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
 }
 
 .add-fe h4 {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
-  color: #555;
+  color: var(--color-text-secondary);
 }
 
 .add-fe .error {
@@ -73,9 +85,9 @@
       'toggle del';
     gap: 0.5rem;
     padding: 0.7rem;
-    border: 1px solid #eceef2;
-    border-radius: 12px;
-    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-surface);
   }
 
   .fe-row > * {

@@ -2,8 +2,11 @@ import { AfterViewInit, Component, ElementRef, Injector, ViewChild, effect } fro
 import { Chart, registerables } from 'chart.js';
 import { DataService } from '../../core/services/data.service';
 import { formatEUR } from '../../core/services/format';
+import { SEMANTIC_COLORS, categoryColor } from '../../core/theme/chart-colors';
 
 Chart.register(...registerables);
+Chart.defaults.font.family = "'Figtree Variable', -apple-system, 'Segoe UI', sans-serif";
+Chart.defaults.color = '#68736d';
 
 @Component({
   selector: 'app-dashboard',
@@ -57,8 +60,8 @@ export class DashboardComponent implements AfterViewInit {
           {
             label: 'Solde de fin de mois',
             data: summaries.map((s) => s.endingBalance),
-            borderColor: '#2f6feb',
-            backgroundColor: 'rgba(47,111,235,0.15)',
+            borderColor: SEMANTIC_COLORS.primary,
+            backgroundColor: 'rgba(36,91,99,0.15)',
             fill: true,
             tension: 0.25,
           },
@@ -83,17 +86,17 @@ export class DashboardComponent implements AfterViewInit {
           {
             label: 'Revenus',
             data: summaries.map((s) => s.income),
-            backgroundColor: '#2e7d32',
+            backgroundColor: SEMANTIC_COLORS.income,
           },
           {
             label: 'Dépenses',
             data: summaries.map((s) => s.expensesExcludingSavings),
-            backgroundColor: '#c0392b',
+            backgroundColor: SEMANTIC_COLORS.expense,
           },
           {
             label: 'Épargne',
             data: summaries.map((s) => s.savings),
-            backgroundColor: '#2f6feb',
+            backgroundColor: SEMANTIC_COLORS.savings,
           },
         ],
       },
@@ -116,8 +119,8 @@ export class DashboardComponent implements AfterViewInit {
           {
             label: "Taux d'épargne",
             data: summaries.map((s) => s.savingsRate * 100),
-            borderColor: '#8e44ad',
-            backgroundColor: 'rgba(142,68,173,0.15)',
+            borderColor: SEMANTIC_COLORS.savings,
+            backgroundColor: 'rgba(176,122,46,0.15)',
             fill: true,
             tension: 0.25,
           },
@@ -138,18 +141,6 @@ export class DashboardComponent implements AfterViewInit {
     const entries = current.byCategory.filter((b) => b.amount > 0);
     const labels = [...entries.map((e) => e.categoryName)];
     const values = [...entries.map((e) => e.amount)];
-    const palette = [
-      '#2f6feb',
-      '#c0392b',
-      '#2e7d32',
-      '#f39c12',
-      '#8e44ad',
-      '#16a085',
-      '#d35400',
-      '#7f8c8d',
-      '#2980b9',
-      '#c2185b',
-    ];
 
     this.breakdownChart = new Chart(this.breakdownCanvas.nativeElement, {
       type: 'doughnut',
@@ -158,7 +149,9 @@ export class DashboardComponent implements AfterViewInit {
         datasets: [
           {
             data: values,
-            backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+            backgroundColor: labels.map((_, i) => categoryColor(i)),
+            borderColor: '#ffffff',
+            borderWidth: 2,
           },
         ],
       },

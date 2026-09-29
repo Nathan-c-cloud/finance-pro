@@ -3,16 +3,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f5f7;
   padding: 1rem;
 }
 
 .auth-card {
   width: 100%;
   max-width: 360px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -28,7 +27,7 @@ h1 {
 .subtitle {
   margin: 0 0 0.5rem;
   text-align: center;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 
@@ -37,13 +36,13 @@ label {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.85rem;
-  color: #333;
+  color: var(--color-text);
 }
 
 input {
   padding: 0.6rem 0.7rem;
-  border: 1px solid #d6d8dc;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 1rem;
   width: 100%;
   box-sizing: border-box;
@@ -75,9 +74,9 @@ button[type='submit'] {
   margin-top: 0.5rem;
   padding: 0.7rem;
   border: none;
-  border-radius: 8px;
-  background: #2f6feb;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font-weight: 600;
   cursor: pointer;
 }
@@ -90,20 +89,20 @@ button[type='submit']:disabled {
 .link-btn {
   background: none;
   border: none;
-  color: #2f6feb;
+  color: var(--color-primary);
   font-size: 0.85rem;
   cursor: pointer;
   padding: 0.25rem;
 }
 
 .error {
-  color: #c0392b;
+  color: var(--color-expense);
   font-size: 0.85rem;
   margin: 0;
 }
 
 .info {
-  color: #1e824c;
+  color: var(--color-income);
   font-size: 0.85rem;
   margin: 0;
 }

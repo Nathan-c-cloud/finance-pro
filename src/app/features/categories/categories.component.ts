@@ -50,11 +50,17 @@ export class CategoriesComponent {
     return (name.trim().charAt(0) || '?').toUpperCase();
   }
 
-  /** Teinte stable calculée à partir du nom : la couleur d'une catégorie ne change jamais. */
+  /**
+   * Teinte stable calculée à partir du nom : la couleur d'une catégorie ne change jamais.
+   * Elle est choisie parmi les 6 teintes de la palette de l'app (pétrole, terracotta,
+   * bleu, or, prune, vert) pour rester harmonieuse avec le reste de l'interface.
+   */
+  private static readonly HUES = [189, 14, 220, 43, 313, 150];
+
   private hue(name: string): number {
     let h = 0;
     for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return h % 360;
+    return CategoriesComponent.HUES[h % CategoriesComponent.HUES.length];
   }
 
   dotBackground(name: string): string {

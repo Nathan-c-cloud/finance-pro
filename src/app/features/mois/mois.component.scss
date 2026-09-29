@@ -1,6 +1,7 @@
 /* ------------------------------------------------------------
    Deux colonnes : vue rapide à gauche (fixe), transactions à droite.
    En dessous de 1200 px, retour à une seule colonne.
+   Couleurs, arrondis et ombres : voir les variables de src/styles.scss.
    ------------------------------------------------------------ */
 .layout {
   display: block;
@@ -21,7 +22,7 @@
 @media (min-width: 1200px) {
   .layout {
     display: grid;
-    grid-template-columns: clamp(300px, 24vw, 360px) minmax(0, 1fr);
+    grid-template-columns: clamp(300px, 28vw, 430px) minmax(0, 1fr);
     gap: 1.25rem;
     align-items: start;
   }
@@ -40,136 +41,123 @@
   }
 }
 
-select,
-input {
-  padding: 0.5rem 0.6rem;
-  border: 1px solid #d6d8dc;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-button {
-  cursor: pointer;
-  border-radius: 6px;
-  border: 1px solid #d6d8dc;
-  background: #fff;
-  padding: 0.5rem 0.8rem;
-  font-size: 0.85rem;
-}
-
-button.primary {
-  background: #2f6feb;
-  border-color: #2f6feb;
-  color: #fff;
-  font-weight: 600;
-}
-
-button.ghost {
-  background: none;
-  border-color: transparent;
-  color: #555;
-}
-
-button.link-btn {
-  background: none;
-  border: none;
-  color: #2f6feb;
-  padding: 0;
+/* Bouton avec icône (ex. "+ Nouveau mois") et badge de statut */
+button.with-icon,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .status-badge {
-  background: #e8f5e9;
-  border-color: #c8e6c9;
-  color: #2e7d32;
+  background: var(--color-income-soft);
+  border-color: var(--color-income-border);
+  color: var(--color-income);
   font-weight: 600;
 }
 
 .status-badge.closed {
-  background: #eceff1;
-  border-color: #cfd8dc;
-  color: #546e7a;
+  background: var(--color-neutral-soft);
+  border-color: var(--color-neutral-border);
+  color: var(--color-neutral-text);
 }
 
-.info {
-  color: #1e824c;
-  background: #e8f5e9;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-
-.error {
-  color: #c0392b;
-  background: #fdecea;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-
+/* ---------- Cartes de chiffres ---------- */
 .cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.6rem;
   margin-bottom: 0.75rem;
 }
 
 .card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 0.5rem 0.7rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  border-radius: 14px;
+  padding: 0.7rem 0.8rem;
+  box-shadow: var(--shadow-card);
 }
 
 .card.highlight {
-  background: #eaf1ff;
+  background: var(--color-primary-soft);
 }
 
 .card.wide {
   grid-column: span 2;
 }
 
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
 .card .label {
-  font-size: 0.72rem;
-  color: #777;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
 }
 
 .card .value {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 700;
 }
 
 .value.positive {
-  color: #2e7d32;
+  color: var(--color-income);
 }
 
 .value.negative {
-  color: #c0392b;
+  color: var(--color-expense);
 }
 
-.panel {
-  background: #fff;
-  border-radius: 10px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+.value.savings {
+  color: var(--color-savings);
 }
 
-.panel h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
+.card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 1.05rem;
 }
 
+.card.highlight .card-icon {
+  background: rgba(36, 91, 99, 0.12);
+}
+
+.card-icon.income {
+  background: var(--color-income-soft);
+  color: var(--color-income);
+}
+
+.card-icon.expense {
+  background: var(--color-expense-soft);
+  color: var(--color-expense);
+}
+
+.card-icon.savings {
+  background: var(--color-savings-soft);
+  color: var(--color-savings);
+}
+
+/* ---------- Panneaux de la colonne de gauche ---------- */
 .side .panel {
-  padding: 0.85rem 1rem;
+  padding: 0.9rem 1rem;
   margin-bottom: 0.75rem;
 }
 
 .side .panel h3 {
-  font-size: 0.92rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  margin-bottom: 0.6rem;
 }
 
 .panel-header {
@@ -195,14 +183,23 @@ button.link-btn {
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.9rem;
+  color: var(--color-text-secondary);
 }
 
-.recon .positive {
-  color: #2e7d32;
+.recon strong {
+  color: var(--color-text);
 }
 
-.recon .negative {
-  color: #c0392b;
+.recon strong.unset {
+  color: var(--color-savings);
+}
+
+.recon .positive strong {
+  color: var(--color-income);
+}
+
+.recon .negative strong {
+  color: var(--color-expense);
 }
 
 .edit-balance {
@@ -216,7 +213,7 @@ button.link-btn {
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.8rem;
-  color: #555;
+  color: var(--color-text-secondary);
 }
 
 .edit-balance .actions {
@@ -225,23 +222,78 @@ button.link-btn {
   flex-wrap: wrap;
 }
 
+/* ---------- Répartition par catégorie : anneau + légende ---------- */
+.breakdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.donut {
+  flex: none;
+  width: 96px;
+  height: 96px;
+}
+
+.donut circle {
+  fill: none;
+  stroke-width: 14;
+}
+
+.donut-track {
+  stroke: var(--color-neutral-border);
+}
+
+.breakdown-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.breakdown-empty p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
 .breakdown {
+  flex: 1;
+  min-width: 0;
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
 
 .breakdown li {
   display: flex;
   justify-content: space-between;
+  gap: 0.5rem;
   font-size: 0.85rem;
-  padding: 0.2rem 0;
-  border-bottom: 1px dashed #eee;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
+.breakdown li:last-child {
+  border-bottom: none;
+}
+
+.legend-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.legend-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* ---------- Transactions ---------- */
 .tx-table {
   display: flex;
   flex-direction: column;
@@ -257,51 +309,96 @@ button.link-btn {
 }
 
 .tx-row.income {
-  background: #f3fbf4;
+  background: var(--color-income-soft);
+  border-radius: var(--radius-md);
 }
 
 .tx-type {
   font-size: 0.75rem;
-  color: #777;
+  color: var(--color-text-secondary);
 }
 
-.toggle-chip {
-  font-size: 0.7rem;
-  padding: 0.3rem 0.4rem;
-  color: #888;
+/* ---------- État vide : aucune transaction ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1rem 2.25rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 14px;
 }
 
-.toggle-chip.on {
-  background: #e8f5e9;
-  border-color: #c8e6c9;
-  color: #2e7d32;
+.empty-illustration {
+  width: 120px;
+  height: auto;
+  margin-bottom: 0.75rem;
 }
 
-.delete {
-  border: none;
-  background: none;
-  color: #c0392b;
-  font-size: 0.9rem;
+.empty-illustration .es-bg {
+  fill: var(--color-primary-soft);
 }
 
-.empty {
-  color: #888;
+.empty-illustration .es-line,
+.empty-illustration .es-wallet,
+.empty-illustration .es-pocket,
+.empty-illustration .es-sprig path {
+  stroke: var(--color-primary);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.empty-illustration .es-line {
+  fill: none;
+}
+
+.empty-illustration .es-wallet {
+  fill: var(--color-surface);
+}
+
+.empty-illustration .es-pocket {
+  fill: var(--color-primary-soft);
+}
+
+.empty-illustration .es-dot {
+  fill: var(--color-primary);
+}
+
+.empty-illustration .es-sprig path {
+  fill: none;
+}
+
+.empty-illustration .es-sprig .es-leaf {
+  fill: var(--color-income-soft);
+  stroke-width: 1.8;
+}
+
+.empty-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.empty-hint {
+  margin: 0.3rem 0 0;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
 
-/* Formulaire d'ajout : en haut de la colonne de droite, toujours à portée */
+/* ---------- Formulaire d'ajout : en haut de la colonne de droite ---------- */
 .add-tx {
   margin-bottom: 1rem;
-  padding: 0.75rem;
-  border-radius: 10px;
-  background: #f6f8fc;
-  border: 1px solid #e6ebf5;
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
 }
 
 .add-tx h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
-  color: #555;
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .add-tx .error {
@@ -318,6 +415,12 @@ button.link-btn {
   flex: 1 1 140px;
 }
 
+.add-tx-form input,
+.add-tx-form select {
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
 .add-tx-form .f-name {
   flex: 2 1 200px;
 }
@@ -332,6 +435,7 @@ button.link-btn {
 
 .add-tx-form button {
   flex: 0 0 auto;
+  min-height: 2.6rem;
 }
 
 /* Sur grand écran : deux lignes bien alignées (type, nom, montant, catégorie, date / détail, bouton) */
@@ -376,8 +480,8 @@ button.link-btn {
       'date toggle';
     gap: 0.5rem;
     padding: 0.7rem;
-    border: 1px solid #eceef2;
-    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
   }
 
   .tx-row > * {

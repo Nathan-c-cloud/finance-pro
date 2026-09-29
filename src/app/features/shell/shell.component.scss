@@ -1,14 +1,13 @@
-$blue: #2f6feb;
-$blue-soft: #eaf1fe;
-$blue-border: #d5e3fd;
-$line: #e4e6ea;
-$text: #1c1e21;
-$muted: #6b7280;
+$blue: var(--color-primary);
+$blue-soft: var(--color-primary-soft);
+$blue-border: var(--color-primary-border);
+$line: var(--color-border);
+$text: var(--color-text);
+$muted: var(--color-text-secondary);
 
 :host {
   display: block;
   min-height: 100vh;
-  background: #f4f5f7;
 }
 
 .shell {
@@ -41,12 +40,12 @@ $muted: #6b7280;
   height: 56px;
   margin: 0 auto;
   padding: 0 0.75rem;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid $line;
-  border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
   transition:
     height 0.2s ease,
     box-shadow 0.2s ease,
@@ -77,7 +76,7 @@ $muted: #6b7280;
   height: 32px;
   border-radius: 10px;
   background: $blue;
-  color: #fff;
+  color: var(--color-on-primary);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -95,9 +94,10 @@ $muted: #6b7280;
   padding: 0.45rem 0.85rem;
   border: 1px solid transparent;
   border-radius: 12px;
-  color: #444;
+  color: var(--color-text-secondary);
   text-decoration: none;
   font-size: 0.9rem;
+  font-weight: 500;
   white-space: nowrap;
   transition:
     background 0.15s ease,
@@ -106,16 +106,16 @@ $muted: #6b7280;
 
 .links a:hover,
 .mobile-menu a:hover {
-  background: #f7f8fa;
-  border-color: $line;
+  background: var(--color-hover);
+  color: $text;
 }
 
 .links a.active,
 .mobile-menu a.active {
   background: $blue-soft;
-  border-color: $blue-border;
-  color: $blue;
-  font-weight: 600;
+  border-color: transparent;
+  color: $text;
+  font-weight: 700;
 }
 
 /* ---------- Groupe de droite ---------- */
@@ -133,7 +133,7 @@ $muted: #6b7280;
   align-items: center;
   border: 1px solid $line;
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .month-picker > button {
@@ -150,11 +150,14 @@ $muted: #6b7280;
   height: 32px;
   font-size: 1.2rem;
   line-height: 1;
-  color: #555;
+  color: $text;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .arrow:hover:not(:disabled) {
-  background: #f1f3f5;
+  background: var(--color-hover);
 }
 
 .arrow:disabled {
@@ -172,7 +175,7 @@ $muted: #6b7280;
 }
 
 .month-label:hover {
-  background: #f1f3f5;
+  background: var(--color-hover);
 }
 
 /* ---------- Avatar (desktop) ---------- */
@@ -186,9 +189,9 @@ $muted: #6b7280;
   height: 34px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid $blue-border;
+  border: 1px solid transparent;
   background: $blue-soft;
-  color: $blue;
+  color: $text;
   font-weight: 700;
   font-size: 0.9rem;
 }
@@ -205,7 +208,7 @@ $muted: #6b7280;
   padding: 0;
   border-radius: 12px;
   border: 1px solid $line;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .burger span {
@@ -220,10 +223,10 @@ $muted: #6b7280;
   position: absolute;
   z-index: 30;
   top: calc(100% + 8px);
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid $line;
   border-radius: 16px;
-  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  box-shadow: 0 12px 32px rgba(23, 32, 28, 0.16);
   padding: 0.4rem;
 }
 
@@ -250,28 +253,28 @@ $muted: #6b7280;
 }
 
 .month-option:hover {
-  background: #f7f8fa;
+  background: var(--color-hover);
 }
 
 .month-option.selected {
   background: $blue-soft;
-  color: $blue;
-  font-weight: 600;
+  color: $text;
+  font-weight: 700;
 }
 
 .tag {
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--color-income-soft);
+  color: var(--color-income);
   font-size: 0.68rem;
   font-weight: 600;
   text-transform: none;
 }
 
 .tag.closed {
-  background: #eceff1;
-  color: #546e7a;
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
 }
 
 .account-menu {
@@ -298,7 +301,7 @@ $muted: #6b7280;
 }
 
 .menu-item:hover {
-  background: #f7f8fa;
+  background: var(--color-hover);
 }
 
 /* Menu burger : panneau pleine largeur sous la pilule */

@@ -24,7 +24,7 @@
               [disabled]="!prevMonth()"
               (click)="goToMonth(prevMonth()!.id)"
             >
-              ‹
+              <app-icon name="chevron-left" />
             </button>
             <button
               class="month-label"
@@ -43,7 +43,7 @@
               [disabled]="!nextMonth()"
               (click)="goToMonth(nextMonth()!.id)"
             >
-              ›
+              <app-icon name="chevron-right" />
             </button>
 
             @if (open() === 'months') {

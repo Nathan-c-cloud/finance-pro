@@ -9,10 +9,14 @@
       <div class="side-toolbar">
         <button class="status-badge" [class.closed]="data.currentMonth()!.status === 'closed'" (click)="toggleStatus()">
           {{ data.currentMonth()!.status === 'current' ? 'Courant' : 'Clôturé' }}
+          <app-icon name="calendar" />
         </button>
 
-        <button class="primary" (click)="createNextMonth()" [disabled]="generating()">
-          {{ generating() ? 'Création...' : '+ Nouveau mois' }}
+        <button class="primary with-icon" (click)="createNextMonth()" [disabled]="generating()">
+          @if (!generating()) {
+            <app-icon name="plus" />
+          }
+          {{ generating() ? 'Création...' : 'Nouveau mois' }}
         </button>
       </div>
 
@@ -26,32 +30,53 @@
       @if (data.currentSummary(); as s) {
         <section class="cards">
           <div class="card">
-            <span class="label">Solde début</span>
-            <span class="value">{{ formatEUR(s.startingBalance) }}</span>
+            <div class="card-text">
+              <span class="label">Solde début</span>
+              <span class="value">{{ formatEUR(s.startingBalance) }}</span>
+            </div>
+            <span class="card-icon"><app-icon name="wallet" /></span>
           </div>
           <div class="card">
-            <span class="label">Revenus</span>
-            <span class="value positive">{{ formatEUR(s.income) }}</span>
+            <div class="card-text">
+              <span class="label">Revenus</span>
+              <span class="value positive">{{ formatEUR(s.income) }}</span>
+            </div>
+            <span class="card-icon income"><app-icon name="arrow-up-right" /></span>
           </div>
           <div class="card">
-            <span class="label">Dépenses (hors épargne)</span>
-            <span class="value negative">{{ formatEUR(s.expensesExcludingSavings) }}</span>
+            <div class="card-text">
+              <span class="label">Dépenses (hors épargne)</span>
+              <span class="value negative">{{ formatEUR(s.expensesExcludingSavings) }}</span>
+            </div>
+            <span class="card-icon expense"><app-icon name="arrow-down" /></span>
           </div>
           <div class="card">
-            <span class="label">Épargne</span>
-            <span class="value">{{ formatEUR(s.savings) }}</span>
+            <div class="card-text">
+              <span class="label">Épargne</span>
+              <span class="value savings">{{ formatEUR(s.savings) }}</span>
+            </div>
+            <span class="card-icon savings"><app-icon name="piggy-bank" /></span>
           </div>
           <div class="card">
-            <span class="label">Reste à vivre</span>
-            <span class="value">{{ formatEUR(s.remainingBeforeVariable) }}</span>
+            <div class="card-text">
+              <span class="label">Reste à vivre</span>
+              <span class="value">{{ formatEUR(s.remainingBeforeVariable) }}</span>
+            </div>
+            <span class="card-icon"><app-icon name="wallet" /></span>
           </div>
           <div class="card">
-            <span class="label">Taux d'épargne</span>
-            <span class="value">{{ formatPercent(s.savingsRate) }}</span>
+            <div class="card-text">
+              <span class="label">Taux d'épargne</span>
+              <span class="value">{{ formatPercent(s.savingsRate) }}</span>
+            </div>
+            <span class="card-icon"><app-icon name="chart-pie" /></span>
           </div>
           <div class="card highlight wide">
-            <span class="label">Solde fin</span>
-            <span class="value">{{ formatEUR(s.endingBalance) }}</span>
+            <div class="card-text">
+              <span class="label">Solde fin</span>
+              <span class="value">{{ formatEUR(s.endingBalance) }}</span>
+            </div>
+            <span class="card-icon"><app-icon name="coins" /></span>
           </div>
         </section>
 
@@ -67,7 +92,7 @@
             @if (data.reconciliation(); as r) {
               <div class="recon">
                 <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
-                <span>Solde réel constaté : <strong>{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
+                <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
                 @if (r.gap !== null) {
                   <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">
                     Écart : <strong>{{ formatEUR(r.gap) }}</strong>
@@ -108,16 +133,44 @@
 
         <section class="panel">
           <h3>Répartition par catégorie</h3>
-          <ul class="breakdown">
-            @for (b of s.byCategory; track b.categoryId) {
-              @if (b.amount !== 0) {
-                <li>
-                  <span>{{ b.categoryName }}</span>
-                  <span>{{ formatEUR(b.amount) }}</span>
-                </li>
+          @let d = donutView(s.byCategory);
+          <div class="breakdown-wrap">
+            <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des dépenses par catégorie">
+              <circle class="donut-track" cx="60" cy="60" r="46" />
+              @for (seg of d.segments; track seg.id) {
+                <circle
+                  class="donut-seg"
+                  cx="60"
+                  cy="60"
+                  r="46"
+                  transform="rotate(-90 60 60)"
+                  [attr.stroke]="seg.color"
+                  [attr.stroke-dasharray]="seg.dash"
+                  [attr.stroke-dashoffset]="seg.offset"
+                >
+                  <title>{{ seg.name }} : {{ formatEUR(seg.amount) }}</title>
+                </circle>
               }
+            </svg>
+            @if (d.legend.length === 0) {
+              <div class="breakdown-empty">
+                <strong>Aucune donnée</strong>
+                <p>Ajoutez des transactions pour voir la répartition.</p>
+              </div>
+            } @else {
+              <ul class="breakdown">
+                @for (b of d.legend; track b.id) {
+                  <li>
+                    <span class="legend-name">
+                      <span class="legend-dot" [style.background]="b.color"></span>
+                      {{ b.name }}
+                    </span>
+                    <span>{{ formatEUR(b.amount) }}</span>
+                  </li>
+                }
+              </ul>
             }
-          </ul>
+          </div>
         </section>
       }
     </aside>
@@ -220,7 +273,27 @@
           </div>
         }
         @if (data.currentMonthTransactions().length === 0) {
-          <p class="empty">Aucune transaction ce mois-ci pour l'instant.</p>
+          <div class="empty-state">
+            <svg class="empty-illustration" viewBox="0 0 120 92" aria-hidden="true">
+              <path class="es-bg" d="M14 78a46 46 0 0 1 92 0z" />
+              <path class="es-line" d="M40 40l32-10a4 4 0 0 1 5 3.8V40" />
+              <rect class="es-wallet" x="34" y="38" width="52" height="38" rx="7" />
+              <rect class="es-pocket" x="66" y="50" width="22" height="14" rx="5" />
+              <circle class="es-dot" cx="74" cy="57" r="1.9" />
+              <g class="es-sprig">
+                <path d="M21 86c3-6 3-11 1-17" />
+                <path class="es-leaf" d="M22 74c-5-1-7-5-7-9 5 0 8 3 7 9z" />
+                <path class="es-leaf" d="M23 79c4-2 8-1 10 3-4 2-8 1-10-3z" />
+              </g>
+              <g class="es-sprig">
+                <path d="M99 86c-3-6-3-11-1-17" />
+                <path class="es-leaf" d="M98 74c5-1 7-5 7-9-5 0-8 3-7 9z" />
+                <path class="es-leaf" d="M97 79c-4-2-8-1-10 3 4 2 8 1 10-3z" />
+              </g>
+            </svg>
+            <p class="empty-title">Aucune transaction ce mois-ci pour l'instant.</p>
+            <p class="empty-hint">Ajoutez votre première transaction pour commencer le suivi !</p>
+          </div>
         }
       </div>
     </section>
