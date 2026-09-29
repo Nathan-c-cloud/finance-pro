@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
+import { gapClues } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
@@ -184,29 +185,65 @@ export class MoisComponent {
     return gap !== null && Math.abs(gap) >= 0.005;
   }
 
+  /**
+   * Message d'aide sous l'écart. Il dépend du signe de l'écart et des transactions du mois :
+   * revenus pas cochés "Reçu", dépenses datées plus tard, correspondance exacte avec un revenu.
+   */
   gapHelp(gap: number): string {
     const amount = formatEUR(Math.abs(gap));
-    return gap < 0
-      ? `Ton compte a ${amount} de moins que prévu : une dépense est peut être oubliée. Ajoute la, ou recale le solde de début.`
-      : `Ton compte a ${amount} de plus que prévu : un revenu est peut être oublié, ou une dépense est trop élevée. Corrige la, ou recale le solde de début.`;
+    const c = gapClues(this.data.currentMonthTransactions());
+    const parts: string[] = [];
+    if (gap > 0) {
+      parts.push(`Ton compte a ${amount} de plus que prévu.`);
+      const n = c.unreceivedIncomes.length;
+      if (n > 0) {
+        parts.push(
+          n === 1
+            ? `1 revenu (${formatEUR(c.unreceivedTotal)}) n'est pas coché « Reçu » : coche le s'il est arrivé, l'écart se recalcule tout seul.`
+            : `${n} revenus (${formatEUR(c.unreceivedTotal)} au total) ne sont pas cochés « Reçu » : coche ceux qui sont arrivés, l'écart se recalcule tout seul.`
+        );
+        const exact = c.unreceivedIncomes.find((t) => Math.abs(t.amount - gap) < 0.005);
+        if (exact) parts.push(`Le revenu « ${exact.name} » correspond exactement à cet écart.`);
+        else if (c.unreceivedTotal > gap) {
+          parts.push(`Si tu les cochais tous, l'écart deviendrait ${formatEUR(gap - c.unreceivedTotal)}.`);
+        }
+      } else {
+        parts.push('Un revenu est peut être oublié, ou une dépense est saisie trop haute.');
+      }
+    } else {
+      parts.push(`Ton compte a ${amount} de moins que prévu.`);
+      const n = c.laterExpenses.length;
+      if (n > 0) {
+        parts.push(
+          `${n} dépense${n > 1 ? 's' : ''} datée${n > 1 ? 's' : ''} plus tard (${formatEUR(c.laterTotal)} au total) ne ${n > 1 ? 'sont' : 'est'} pas encore comptée${n > 1 ? 's' : ''} : si ${n > 1 ? 'l\'une' : 'elle'} a déjà été prélevée, corrige sa date.`
+        );
+      }
+      parts.push("Sinon, une dépense est peut être oubliée ou saisie trop basse, ou un revenu coché « Reçu » n'est pas encore arrivé.");
+    }
+    parts.push("Si l'écart est normal, tu peux recaler.");
+    return parts.join(' ');
   }
 
-  /** Calcule le solde de début qui ramène l'écart à zéro, puis demande confirmation avant de l'appliquer. */
+  /** Calcule le solde qui ramène l'écart à zéro, puis demande confirmation avant de l'appliquer. */
   async recalibrate() {
     const cm = this.data.currentMonth();
     const info = this.data.startInfo();
     const r = this.data.reconciliation();
     if (!cm || !info || !r || !this.hasGap(r.gap)) return;
     const newStart = Math.round((info.value + r.gap) * 100) / 100;
-    const change = `Le solde de début passera de ${formatEUR(info.value)} à ${formatEUR(newStart)}, pour que le solde théorique corresponde à ton solde réel.`;
-    const consequence = info.isFirst
-      ? 'Les mois suivants partiront de ce nouveau solde.'
-      : `${this.data.monthLabel(cm.month_date)} ne reprendra plus automatiquement le solde de fin de ${info.prevLabel}, et les mois suivants partiront de ce nouveau solde.`;
-    const ok = await this.dialog.confirm({
-      title: 'Recaler le solde de début ?',
-      message: `${change}\n${consequence}`,
-      confirmLabel: 'Recaler',
-    });
+    const ok = await this.dialog.confirm(
+      info.isFirst
+        ? {
+            title: 'Recaler le solde de départ du suivi ?',
+            message: `Le solde de départ du suivi passera de ${formatEUR(info.value)} à ${formatEUR(newStart)}, pour que le solde théorique d'aujourd'hui corresponde à ton solde réel.\nLes mois suivants partiront de ce nouveau solde.`,
+            confirmLabel: 'Recaler',
+          }
+        : {
+            title: `Recaler le solde de fin de ${info.prevLabel} ?`,
+            message: `Le solde de fin de ${info.prevLabel} passera de ${formatEUR(info.value)} à ${formatEUR(newStart)} (calculé avec ses transactions : ${formatEUR(info.prevComputedEnd!)}), pour que le solde théorique d'aujourd'hui corresponde à ton solde réel.\n${info.prevLabel} sera marqué « Solde forcé de fin de mois », et ${this.data.monthLabel(cm.month_date)} comme les mois suivants partiront de ce solde.`,
+            confirmLabel: 'Recaler',
+          }
+    );
     if (!ok) return;
     this.balanceError.set(null);
     try {
@@ -219,11 +256,11 @@ export class MoisComponent {
   async revertToAuto() {
     const cm = this.data.currentMonth();
     const info = this.data.startInfo();
-    if (!cm || !info || !info.forced || info.auto === null) return;
+    if (!cm || !info || !info.prevForced || info.prevComputedEnd === null) return;
     const ok = await this.dialog.confirm({
-      title: 'Revenir au report automatique ?',
-      message: `Le solde de début de ${this.data.monthLabel(cm.month_date)} redeviendra ${formatEUR(info.auto)}, le solde de fin de ${info.prevLabel}.\nLe solde théorique de ce mois et des mois suivants sera recalculé.`,
-      confirmLabel: 'Revenir au report',
+      title: `Revenir au calcul automatique de ${info.prevLabel} ?`,
+      message: `Le solde de fin de ${info.prevLabel} redeviendra ${formatEUR(info.prevComputedEnd)}, calculé avec ses transactions, et ${this.data.monthLabel(cm.month_date)} partira de ce solde.\nLes soldes des mois suivants seront recalculés.`,
+      confirmLabel: 'Revenir au calcul',
     });
     if (!ok) return;
     this.balanceError.set(null);

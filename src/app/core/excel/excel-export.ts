@@ -329,8 +329,8 @@ function addMonths(wb: Workbook, s: ExportSnapshot) {
       expenses: { formula: expenses, result: res(sum?.expensesExcludingSavings) },
       savings: { formula: sav, result: res(sum?.savings) },
       rate: { formula: rate, result: res(sum?.savingsRate) },
-      change: { formula: change, result: res(sum?.accountChange) },
-      end: { formula: end, result: res(sum?.endingBalance) },
+      change: { formula: change, result: res(sum ? sum.computedEndingBalance - sum.startingBalance : undefined) },
+      end: { formula: end, result: res(sum?.computedEndingBalance) },
     });
   }
   styleHeader(ws, 6);

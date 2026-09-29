@@ -52,16 +52,20 @@ export class DataService {
     const settings = this.settings();
     const summaries: MonthSummary[] = [];
     let carry = settings?.initial_balance ?? 0;
-    for (const m of months) {
+    months.forEach((m, i) => {
       const tx = this.transactions().filter((t) => t.month_id === m.id);
-      const startingBalance =
-        m.starting_balance_override !== null && m.starting_balance_override !== undefined
-          ? m.starting_balance_override
-          : carry;
-      const s = summarizeMonth(m, tx, cats, startingBalance);
+      const own = m.starting_balance_override;
+      // Premier mois : son solde de début est le solde initial du suivi (une éventuelle ancienne valeur forcée prime).
+      // Autres mois : ils reprennent la fin du mois précédent, qui peut elle même être forcée (voir ci dessous).
+      const startingBalance = i === 0 && own !== null && own !== undefined ? own : carry;
+      // Un recalage depuis le mois suivant force le solde de FIN de ce mois : la valeur est stockée sur le mois suivant
+      // (starting_balance_override), et c'est ce mois ci qui l'affiche comme "solde forcé de fin de mois".
+      const nextOverride = months[i + 1]?.starting_balance_override;
+      const forcedEnd = nextOverride !== null && nextOverride !== undefined ? nextOverride : null;
+      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd);
       summaries.push(s);
       carry = s.endingBalance;
-    }
+    });
     return summaries;
   });
 
@@ -97,7 +101,10 @@ export class DataService {
     return this.sortedMonths()[0]?.id === id;
   }
 
-  /** D'où vient le solde de début du mois affiché : report automatique, valeur forcée, ou solde de départ du suivi. */
+  /**
+   * D'où vient le solde de début du mois affiché : solde de départ du suivi (premier mois),
+   * ou solde de fin du mois précédent, éventuellement forcé par un recalage.
+   */
   readonly startInfo = computed(() => {
     const cm = this.currentMonth();
     if (!cm) return null;
@@ -105,31 +112,28 @@ export class DataService {
     const i = list.findIndex((s) => s.month.id === cm.id);
     if (i < 0) return null;
     const prev = i > 0 ? list[i - 1] : null;
-    const override = list[i].month.starting_balance_override;
-    const forced = prev !== null && override !== null && override !== undefined;
     const value = list[i].startingBalance;
-    const auto = prev ? prev.endingBalance : null;
     return {
       isFirst: prev === null,
       value,
-      forced,
-      auto,
-      gap: forced && auto !== null ? Math.round((value - auto) * 100) / 100 : 0,
+      prevForced: prev?.endingForced ?? false,
+      /** Solde de fin du mois précédent tel que calculé par ses transactions (sans forçage). */
+      prevComputedEnd: prev ? prev.computedEndingBalance : null,
+      gap: prev?.endingForced ? Math.round((prev.endingBalance - prev.computedEndingBalance) * 100) / 100 : 0,
       prevLabel: prev ? this.monthLabel(prev.month.month_date) : null,
     };
   });
 
-  /** Mois (hors premier) dont le solde de début est forcé : la chaîne des soldes y repart d'une valeur saisie. */
+  /** Mois dont le solde de fin est forcé (recalage depuis le mois suivant) : la chaîne repart de la valeur forcée. */
   readonly forcedMonths = computed(() => {
-    const list = this.allSummaries();
-    const out: { month: MonthRow; forced: number; auto: number; gap: number }[] = [];
-    for (let i = 1; i < list.length; i++) {
-      const o = list[i].month.starting_balance_override;
-      if (o === null || o === undefined) continue;
-      const auto = list[i - 1].endingBalance;
-      out.push({ month: list[i].month, forced: o, auto, gap: Math.round((o - auto) * 100) / 100 });
-    }
-    return out;
+    return this.allSummaries()
+      .filter((s) => s.endingForced)
+      .map((s) => ({
+        month: s.month,
+        forced: s.endingBalance,
+        computed: s.computedEndingBalance,
+        gap: Math.round((s.endingBalance - s.computedEndingBalance) * 100) / 100,
+      }));
   });
 
   constructor(private supa: SupabaseService) {

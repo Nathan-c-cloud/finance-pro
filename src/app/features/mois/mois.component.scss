@@ -85,6 +85,23 @@ button.with-icon,
   background: var(--color-primary-soft);
 }
 
+.card.forced {
+  background-color: var(--color-note-soft);
+  /* petites rayures ocre : le solde forcé se voit sans dépendre de la seule couleur */
+  background-image: repeating-linear-gradient(135deg, transparent 0 10px, rgba(176, 122, 46, 0.08) 10px 20px);
+}
+
+.card.forced .card-icon {
+  background: rgba(176, 122, 46, 0.16);
+  color: var(--color-note-text);
+}
+
+.forced-note {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--color-note-text);
+}
+
 .card.wide {
   grid-column: span 2;
 }

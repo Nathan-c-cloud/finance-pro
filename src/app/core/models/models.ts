@@ -63,7 +63,12 @@ export interface MonthSummary {
   expensesExcludingSavings: number;
   savings: number;
   accountChange: number; // "évolution du compte" = solde fin moins solde début
+  /** Solde de fin affiché : la valeur forcée si le mois suivant a recalé le solde, sinon le solde calculé. */
   endingBalance: number;
+  /** Solde de fin calculé à partir des transactions, sans forçage. */
+  computedEndingBalance: number;
+  /** Vrai si le solde de fin a été forcé (recalage depuis le mois suivant). */
+  endingForced: boolean;
   savingsRate: number; // 0..1
   /** Dépenses par catégorie, hors catégorie Épargne (comme "Dépenses (hors épargne)"). */
   byCategory: { categoryId: string | null; categoryName: string; amount: number }[];

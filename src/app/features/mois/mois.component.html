@@ -31,12 +31,7 @@
         <section class="cards">
           <div class="card">
             <div class="card-text">
-              <span class="label">
-                Solde début
-                @if (data.startInfo()?.forced) {
-                  <span class="badge-forced" title="Ce solde est forcé : il ne reprend pas le solde de fin du mois précédent">Forcé</span>
-                }
-              </span>
+              <span class="label">Solde début</span>
               <span class="value">{{ formatEUR(s.startingBalance) }}</span>
             </div>
             <span class="card-icon"><app-icon name="wallet" /></span>
@@ -76,10 +71,21 @@
             </div>
             <span class="card-icon"><app-icon name="chart-pie" /></span>
           </div>
-          <div class="card highlight wide">
+          <div class="card wide" [class.highlight]="!s.endingForced" [class.forced]="s.endingForced">
             <div class="card-text">
-              <span class="label">Solde théorique fin de mois</span>
+              <span class="label">
+                {{ s.endingForced ? 'Solde forcé de fin de mois' : 'Solde théorique fin de mois' }}
+                @if (s.endingForced) {
+                  <span class="badge-forced">Forcé</span>
+                }
+              </span>
               <span class="value">{{ formatEUR(s.endingBalance) }}</span>
+              @if (s.endingForced) {
+                <small class="forced-note">
+                  Calculé avec les transactions : {{ formatEUR(s.computedEndingBalance) }}. Ce solde a été recalé depuis le
+                  rapprochement du mois suivant.
+                </small>
+              }
             </div>
             <span class="card-icon"><app-icon name="coins" /></span>
           </div>
@@ -101,24 +107,21 @@
             @if (data.reconciliation(); as r) {
               @if (data.startInfo(); as si) {
                 <div class="recon">
-                  <span>
-                    Solde de début : <strong>{{ formatEUR(si.value) }}</strong>
-                    @if (si.forced) {
-                      <span class="badge-forced">Forcé</span>
-                    }
-                  </span>
+                  <span>Solde de début : <strong>{{ formatEUR(si.value) }}</strong></span>
                   <small class="recon-note">
                     @if (si.isFirst) {
                       Solde de départ du suivi, avant le premier mois.
-                    } @else if (si.forced) {
-                      {{ si.prevLabel }} finit à {{ formatEUR(si.auto!) }}. Écart avec le report automatique :
-                      {{ formatEUR(si.gap) }}.
+                    } @else if (si.prevForced) {
+                      Reprend le solde de fin forcé de {{ si.prevLabel }} (calculé avec ses transactions :
+                      {{ formatEUR(si.prevComputedEnd!) }}, écart : {{ formatEUR(si.gap) }}).
                     } @else {
                       Report automatique du solde de fin de {{ si.prevLabel }}.
                     }
                   </small>
-                  @if (si.forced) {
-                    <button class="link-btn revert" (click)="revertToAuto()">Revenir au report automatique</button>
+                  @if (si.prevForced) {
+                    <button class="link-btn revert" (click)="revertToAuto()">
+                      Revenir au calcul automatique de {{ si.prevLabel }}
+                    </button>
                   }
                   <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
                   <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
@@ -130,7 +133,9 @@
                 </div>
                 @if (hasGap(r.gap)) {
                   <p class="gap-help">{{ gapHelp(r.gap) }}</p>
-                  <button class="recalibrate" (click)="recalibrate()">Recaler le solde de début</button>
+                  <button class="recalibrate" (click)="recalibrate()">
+                    {{ si.isFirst ? 'Recaler le solde de départ du suivi' : 'Recaler le solde de fin de ' + si.prevLabel }}
+                  </button>
                 }
               }
             }
@@ -149,7 +154,7 @@
               } @else {
                 <p class="hint">
                   Le solde de début reprend celui de fin du mois précédent. Pour le corriger, renseigne le solde réel puis
-                  utilise le bouton « Recaler le solde de début ».
+                  utilise le bouton « Recaler le solde de fin de … » qui apparaît en cas d'écart.
                 </p>
               }
               <label>

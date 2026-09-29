@@ -5,17 +5,17 @@
 } @else {
   @if (data.forcedMonths().length > 0) {
     <div class="forced-notice" role="status">
-      <strong>Solde de début forcé</strong>
+      <strong>Solde de fin de mois forcé</strong>
       <ul>
         @for (f of data.forcedMonths(); track f.month.id) {
           <li>
-            {{ data.monthLabel(f.month.month_date) }} : forcé à {{ eur(f.forced) }}, le report automatique donnerait
-            {{ eur(f.auto) }}.
+            {{ data.monthLabel(f.month.month_date) }} : forcé à {{ eur(f.forced) }}, alors que ses transactions donnent
+            {{ eur(f.computed) }}.
             <button class="link-btn" (click)="openMonth(f.month.id)">Voir le mois</button>
           </li>
         }
       </ul>
-      <p>La courbe du solde repart de cette valeur, et les modifications des mois précédents ne s'y répercutent plus.</p>
+      <p>La courbe du solde repart de ces valeurs, et les modifications de ces mois ne se répercutent plus sur les mois suivants.</p>
     </div>
   }
 

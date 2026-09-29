@@ -20,7 +20,9 @@ export function summarizeMonth(
   month: MonthRow,
   transactions: Transaction[],
   categories: Category[],
-  startingBalance: number
+  startingBalance: number,
+  /** Solde de fin forcé (le mois suivant a recalé le solde sur la banque), ou null pour le solde calculé. */
+  forcedEnd: number | null = null
 ): MonthSummary {
   const income = sum(transactions.filter((t) => t.type === 'income').map((t) => t.amount));
 
@@ -40,7 +42,9 @@ export function summarizeMonth(
       .map((t) => t.amount)
   );
 
-  const endingBalance = startingBalance + income - expensesExcludingSavings - savings;
+  const computedEndingBalance = startingBalance + income - expensesExcludingSavings - savings;
+  const endingForced = forcedEnd !== null;
+  const endingBalance = endingForced ? forcedEnd : computedEndingBalance;
   const accountChange = endingBalance - startingBalance;
   const savingsRate = income > 0 ? savings / income : 0;
 
@@ -71,6 +75,8 @@ export function summarizeMonth(
     savings,
     accountChange,
     endingBalance,
+    computedEndingBalance,
+    endingForced,
     savingsRate,
     byCategory: Array.from(byCategoryMap.values()),
   };
@@ -101,6 +107,24 @@ export function theoreticalBalanceToday(
       .map((t) => t.amount)
   );
   return startingBalance + income - outflows;
+}
+
+/**
+ * Pistes pour expliquer un écart de rapprochement (solde réel moins solde théorique) :
+ * les revenus pas encore cochés "Reçu" (qui gonflent l'écart) et les dépenses datées plus tard
+ * (pas comptées dans le théorique d'aujourd'hui, donc possiblement déjà prélevées).
+ */
+export function gapClues(transactions: Transaction[], today: Date = new Date()) {
+  const unreceivedIncomes = transactions.filter((t) => t.type === 'income' && t.received !== true);
+  const laterExpenses = transactions.filter(
+    (t) => t.type !== 'income' && !!t.tx_date && new Date(t.tx_date + 'T00:00:00') > today
+  );
+  return {
+    unreceivedIncomes,
+    unreceivedTotal: sum(unreceivedIncomes.map((t) => t.amount)),
+    laterExpenses,
+    laterTotal: sum(laterExpenses.map((t) => t.amount)),
+  };
 }
 
 export function addMonths(date: Date, n: number): Date {
