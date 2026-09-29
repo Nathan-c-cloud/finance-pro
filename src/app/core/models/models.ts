@@ -6,7 +6,7 @@ export interface Category {
   created_at?: string;
 }
 
-export type Frequency = 'monthly' | 'annual';
+export type Frequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
 
 export interface FixedExpense {
   id: string;
@@ -62,8 +62,9 @@ export interface MonthSummary {
   income: number;
   expensesExcludingSavings: number;
   savings: number;
-  remainingBeforeVariable: number; // "reste à vivre" = revenus - dépenses fixes hors épargne
+  accountChange: number; // "évolution du compte" = solde fin moins solde début
   endingBalance: number;
   savingsRate: number; // 0..1
+  /** Dépenses par catégorie, hors catégorie Épargne (comme "Dépenses (hors épargne)"). */
   byCategory: { categoryId: string | null; categoryName: string; amount: number }[];
 }

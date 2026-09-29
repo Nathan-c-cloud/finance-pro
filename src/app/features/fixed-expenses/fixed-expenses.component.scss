@@ -6,7 +6,7 @@
 
 .fe-row {
   display: grid;
-  grid-template-columns: 1.4fr 90px 1fr 110px 60px 90px 32px;
+  grid-template-columns: 1.3fr 90px 1fr 150px 60px 90px 32px;
   gap: 0.4rem;
   align-items: center;
   font-size: 0.85rem;
@@ -22,6 +22,27 @@
 .add-fe-form input,
 .fe-row input {
   padding-right: 0.6rem;
+}
+
+.fe-freq {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.fe-freq select {
+  width: 100%;
+}
+
+.fe-share {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  padding-left: 0.2rem;
+}
+
+.fe-preview {
+  margin: 0.5rem 0 0;
 }
 
 .fe-row.inactive {
@@ -61,7 +82,7 @@
 @media (min-width: 721px) {
   .add-fe-form {
     display: grid;
-    grid-template-columns: 1.4fr 90px 1fr 110px 60px 90px 32px;
+    grid-template-columns: 1.3fr 90px 1fr 150px 60px 90px 32px;
     gap: 0.4rem;
   }
 

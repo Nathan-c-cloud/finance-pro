@@ -37,7 +37,7 @@ create table if not exists fixed_expenses (
   name text not null,
   amount numeric not null,
   category_id uuid references categories(id) on delete set null,
-  frequency text not null default 'monthly' check (frequency in ('monthly','annual')),
+  frequency text not null default 'monthly' check (frequency in ('monthly','bimonthly','quarterly','semiannual','annual')),
   payment_day int not null default 1 check (payment_day between 1 and 28),
   active boolean not null default true,
   created_at timestamptz not null default now()

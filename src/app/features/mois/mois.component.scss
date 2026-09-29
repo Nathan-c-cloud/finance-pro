@@ -101,6 +101,12 @@ button.with-icon,
   color: var(--color-text-secondary);
 }
 
+.card .label small {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+}
+
 .card .value {
   font-size: 1.15rem;
   font-weight: 700;
@@ -299,6 +305,61 @@ button.with-icon,
 }
 
 /* ---------- Transactions ---------- */
+.main-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.main-head h3 {
+  margin: 0;
+}
+
+/* Barre de tri : Date | Nom, la flèche indique le sens */
+.sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.sort-label {
+  color: var(--color-text-secondary);
+  margin-right: 0.1rem;
+}
+
+.sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.sort-chip.active {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sort-chip app-icon {
+  width: 1em;
+  height: 1em;
+}
+
+.sort-hint {
+  color: var(--color-text-secondary);
+  margin-left: 0.25rem;
+}
+
 .tx-table {
   display: flex;
   flex-direction: column;

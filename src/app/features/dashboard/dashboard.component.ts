@@ -91,7 +91,7 @@ export class DashboardComponent {
         labels: this.labels(summaries),
         datasets: [
           {
-            label: 'Solde de fin de mois',
+            label: 'Solde théorique de fin de mois',
             data: summaries.map((s) => s.endingBalance),
             borderColor: SEMANTIC_COLORS.primary,
             backgroundColor: 'rgba(36,91,99,0.15)',

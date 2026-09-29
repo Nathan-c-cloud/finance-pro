@@ -1,8 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
-import { TxType } from '../../core/models/models';
+import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
@@ -31,6 +31,20 @@ function emptyForm(type: TxType): NewTxForm {
   };
 }
 
+type SortKey = 'date' | 'name';
+type SortDir = 'asc' | 'desc';
+
+/** Tri stable : à critère égal, l'ordre d'origine (par date) est conservé. Sans date : en premier en croissant. */
+function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Transaction[] {
+  const sign = dir === 'asc' ? 1 : -1;
+  const compare =
+    key === 'date'
+      ? (a: Transaction, b: Transaction) => (a.tx_date ?? '').localeCompare(b.tx_date ?? '')
+      : (a: Transaction, b: Transaction) =>
+          a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true });
+  return [...list].sort((a, b) => sign * compare(a, b));
+}
+
 @Component({
   selector: 'app-mois',
   standalone: true,
@@ -49,6 +63,27 @@ export class MoisComponent {
   generating = signal(false);
   info = signal<string | null>(null);
 
+  addingFixed = signal(false);
+  fixedInfo = signal<string | null>(null);
+  fixedError = signal<string | null>(null);
+
+  // Tri de la liste des transactions (affichage seulement, rien n'est enregistré)
+  sortOptions: { key: SortKey; label: string }[] = [
+    { key: 'date', label: 'Date' },
+    { key: 'name', label: 'Nom' },
+  ];
+  sortKey = signal<SortKey>('date');
+  sortDir = signal<SortDir>('asc');
+  sortHint = computed(() => {
+    const asc = this.sortDir() === 'asc';
+    return this.sortKey() === 'date'
+      ? asc ? 'du plus ancien au plus récent' : 'du plus récent au plus ancien'
+      : asc ? 'de A à Z' : 'de Z à A';
+  });
+  sortedTransactions = computed<Transaction[]>(() =>
+    sortTransactions(this.data.currentMonthTransactions(), this.sortKey(), this.sortDir())
+  );
+
   editingBalance = signal(false);
   balanceOverrideInput = signal<number | null>(null);
   realBalanceInput = signal<number | null>(null);
@@ -66,16 +101,51 @@ export class MoisComponent {
     this.error.set(null);
     this.info.set(null);
     try {
-      const { count } = await this.data.generateNextMonth();
+      const { created } = await this.data.generateNextMonth();
+      this.fixedInfo.set(null);
+      this.fixedError.set(null);
       this.info.set(
-        count > 0
-          ? `Nouveau mois créé, ${count} dépense(s) fixe(s) copiée(s) automatiquement.`
+        created
+          ? 'Nouveau mois créé, vide. Le bouton « Ajouter les dépenses fixes » copie vos charges récurrentes.'
           : 'Ce mois existait déjà, affichage basculé dessus.'
       );
     } catch (e: any) {
       this.error.set(e?.message ?? 'Erreur lors de la création du mois.');
     } finally {
       this.generating.set(false);
+    }
+  }
+
+  async addFixedExpenses() {
+    const cm = this.data.currentMonth();
+    if (!cm) return;
+    this.addingFixed.set(true);
+    this.fixedInfo.set(null);
+    this.fixedError.set(null);
+    try {
+      const { added, alreadyThere, active } = await this.data.addFixedExpensesToMonth(cm.id);
+      if (active === 0) {
+        this.fixedInfo.set('Aucune dépense fixe active dans le référentiel.');
+      } else if (added === 0) {
+        this.fixedInfo.set('Toutes les dépenses fixes actives sont déjà dans ce mois.');
+      } else {
+        const skipped = alreadyThere > 0 ? `, ${alreadyThere} déjà présente(s) non recopiée(s)` : '';
+        this.fixedInfo.set(`${added} dépense(s) fixe(s) ajoutée(s)${skipped}.`);
+      }
+    } catch (e: any) {
+      this.fixedError.set(e?.message ?? "Erreur lors de l'ajout des dépenses fixes.");
+    } finally {
+      this.addingFixed.set(false);
+    }
+  }
+
+  /** Clic sur un critère : le sélectionne (croissant) ou, s'il l'est déjà, inverse le sens. */
+  toggleSort(key: SortKey) {
+    if (this.sortKey() === key) {
+      this.sortDir.update((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
     }
   }
 

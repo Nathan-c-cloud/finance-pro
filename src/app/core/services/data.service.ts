@@ -8,6 +8,7 @@ import {
   Transaction,
   UserSettings,
 } from '../models/models';
+import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { addMonths, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
@@ -83,8 +84,7 @@ export class DataService {
     if (!cm || !s) return null;
     const theoretical = theoreticalBalanceToday(
       s.startingBalance,
-      this.currentMonthTransactions(),
-      this.categories()
+      this.currentMonthTransactions()
     );
     const real = cm.real_balance_check ?? null;
     const gap = real !== null ? real - theoretical : null;
@@ -327,11 +327,10 @@ export class DataService {
   }
 
   /**
-   * Crée le mois suivant : clôture (étiquette) le mois courant, copie les
-   * dépenses fixes ACTIVES du référentiel avec leurs valeurs actuelles
-   * (figées, jamais rétroactives), puis bascule l'affichage dessus.
+   * Crée le mois suivant, VIDE : clôture (étiquette) le mois courant, crée le mois, puis bascule
+   * l'affichage dessus. Les dépenses fixes s'ajoutent ensuite à la demande (addFixedExpensesToMonth).
    */
-  async generateNextMonth(): Promise<{ month: MonthRow; count: number }> {
+  async generateNextMonth(): Promise<{ month: MonthRow; created: boolean }> {
     const uid = this.supa.userId!;
     const cm = this.currentMonth();
     const last = cm ?? this.sortedMonths()[this.sortedMonths().length - 1];
@@ -342,7 +341,7 @@ export class DataService {
     const existing = this.months().find((m) => m.month_date === nextDate);
     if (existing) {
       this.currentMonth.set(existing);
-      return { month: existing, count: 0 };
+      return { month: existing, created: false };
     }
 
     if (last.status === 'current') {
@@ -357,32 +356,64 @@ export class DataService {
     if (monthErr) throw monthErr;
     const month = newMonth as MonthRow;
     this.months.update((list) => [...list, month]);
+    this.currentMonth.set(month);
+    return { month, created: true };
+  }
+
+  /**
+   * Copie dans le mois les dépenses fixes ACTIVES du référentiel qui n'y figurent pas déjà.
+   * - Valeurs figées au moment de la copie (jamais rétroactives).
+   * - Un montant qui n'est pas mensuel est réparti : chaque mois reçoit sa part (voir fixed-expense.ts).
+   * - Sans doublon : une dépense fixe déjà présente dans le mois (même nom, sans tenir compte
+   *   des majuscules, des accents ni des espaces autour) n'est pas recopiée.
+   */
+  async addFixedExpensesToMonth(monthId: string): Promise<{ added: number; alreadyThere: number; active: number }> {
+    const uid = this.supa.userId!;
+    const month = this.months().find((m) => m.id === monthId);
+    if (!month) throw new Error('Mois introuvable.');
 
     const active = this.fixedExpenses().filter((f) => f.active);
-    const rows = active.map((f) => ({
-      user_id: uid,
-      month_id: month.id,
-      type: 'fixed' as const,
-      name: f.name,
-      amount: f.amount,
-      category_id: f.category_id,
-      tx_date: buildDate(nextDate, f.payment_day),
-      detail: 'Prélèvement automatique',
-      necessary: null,
-      received: null,
-    }));
 
-    if (rows.length > 0) {
-      const { data: inserted, error: txErr } = await this.supa.client
-        .from('transactions')
-        .insert(rows)
-        .select();
-      if (txErr) throw txErr;
+    // Compteur des noms déjà présents (deux dépenses fixes de même nom restent possibles)
+    const present = new Map<string, number>();
+    for (const t of this.transactions()) {
+      if (t.month_id !== monthId || t.type !== 'fixed') continue;
+      const key = nameKey(t.name);
+      present.set(key, (present.get(key) ?? 0) + 1);
+    }
+
+    const toAdd: FixedExpense[] = [];
+    let alreadyThere = 0;
+    for (const f of active) {
+      const key = nameKey(f.name);
+      const left = present.get(key) ?? 0;
+      if (left > 0) {
+        present.set(key, left - 1);
+        alreadyThere++;
+      } else {
+        toAdd.push(f);
+      }
+    }
+
+    if (toAdd.length > 0) {
+      const rows = toAdd.map((f) => ({
+        user_id: uid,
+        month_id: monthId,
+        type: 'fixed' as const,
+        name: f.name,
+        amount: monthlyShare(f.amount, f.frequency),
+        category_id: f.category_id,
+        tx_date: buildDate(month.month_date, f.payment_day),
+        detail: fixedExpenseDetail(f.amount, f.frequency),
+        necessary: null,
+        received: null,
+      }));
+      const { data: inserted, error } = await this.supa.client.from('transactions').insert(rows).select();
+      if (error) throw error;
       this.transactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
     }
 
-    this.currentMonth.set(month);
-    return { month, count: rows.length };
+    return { added: toAdd.length, alreadyThere, active: active.length };
   }
 
   /**
@@ -490,6 +521,11 @@ export class DataService {
     const current = this.months().find((m) => m.status === 'current');
     if (current) this.currentMonth.set(current);
   }
+}
+
+/** Clé de comparaison de deux noms : sans majuscules, accents ni espaces autour. */
+function nameKey(name: string): string {
+  return name.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').toLowerCase().trim();
 }
 
 function buildDate(monthDate: string, day: number): string {

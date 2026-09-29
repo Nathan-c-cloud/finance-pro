@@ -40,25 +40,18 @@ export function summarizeMonth(
       .map((t) => t.amount)
   );
 
-  const fixedExpensesExcludingSavings = sum(
-    transactions
-      .filter(
-        (t) =>
-          t.type === 'fixed' && !(t.category_id && savingsCategoryIds.has(t.category_id))
-      )
-      .map((t) => t.amount)
-  );
-
-  const remainingBeforeVariable = income - fixedExpensesExcludingSavings;
   const endingBalance = startingBalance + income - expensesExcludingSavings - savings;
+  const accountChange = endingBalance - startingBalance;
   const savingsRate = income > 0 ? savings / income : 0;
 
   const byCategoryMap = new Map<string, { categoryId: string | null; categoryName: string; amount: number }>();
   for (const cat of categories) {
+    if (savingsCategoryIds.has(cat.id)) continue; // l'épargne a sa propre carte, hors répartition
     byCategoryMap.set(cat.id, { categoryId: cat.id, categoryName: cat.name, amount: 0 });
   }
   for (const t of transactions) {
     if (t.type === 'income') continue;
+    if (t.category_id && savingsCategoryIds.has(t.category_id)) continue;
     const key = t.category_id ?? '__none__';
     if (!byCategoryMap.has(key)) {
       byCategoryMap.set(key, {
@@ -76,7 +69,7 @@ export function summarizeMonth(
     income,
     expensesExcludingSavings,
     savings,
-    remainingBeforeVariable,
+    accountChange,
     endingBalance,
     savingsRate,
     byCategory: Array.from(byCategoryMap.values()),
@@ -89,21 +82,19 @@ function normalize(s: string): string {
 }
 
 /** Solde "théorique à aujourd'hui" pour le rapprochement bancaire :
- *  ne compte que les mouvements dont la date est déjà passée. */
+ *  - un revenu compte seulement s'il est coché "Reçu" (sa date n'importe pas) ;
+ *  - une dépense (épargne comprise) compte dès que sa date est passée ou aujourd'hui,
+ *    ou si elle n'a pas de date. */
 export function theoreticalBalanceToday(
   startingBalance: number,
   transactions: Transaction[],
-  categories: Category[],
   today: Date = new Date()
 ): number {
-  const savingsCategoryIds = new Set(
-    categories.filter((c) => normalize(c.name) === 'epargne').map((c) => c.id)
-  );
   const isPastOrToday = (t: Transaction) => {
     if (!t.tx_date) return true; // pas de date = considérée déjà survenue
     return new Date(t.tx_date + 'T00:00:00') <= today;
   };
-  const income = sum(transactions.filter((t) => t.type === 'income' && isPastOrToday(t)).map((t) => t.amount));
+  const income = sum(transactions.filter((t) => t.type === 'income' && t.received === true).map((t) => t.amount));
   const outflows = sum(
     transactions
       .filter((t) => t.type !== 'income' && isPastOrToday(t))

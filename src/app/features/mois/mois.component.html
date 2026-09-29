@@ -59,10 +59,10 @@
           </div>
           <div class="card">
             <div class="card-text">
-              <span class="label">Reste à vivre</span>
-              <span class="value">{{ formatEUR(s.remainingBeforeVariable) }}</span>
+              <span class="label">Évolution du compte <small>(solde fin moins solde début)</small></span>
+              <span class="value" [class.positive]="s.accountChange > 0" [class.negative]="s.accountChange < 0">{{ formatEUR(s.accountChange) }}</span>
             </div>
-            <span class="card-icon"><app-icon name="wallet" /></span>
+            <span class="card-icon"><app-icon name="trending-up" /></span>
           </div>
           <div class="card">
             <div class="card-text">
@@ -73,7 +73,7 @@
           </div>
           <div class="card highlight wide">
             <div class="card-text">
-              <span class="label">Solde fin</span>
+              <span class="label">Solde théorique fin de mois</span>
               <span class="value">{{ formatEUR(s.endingBalance) }}</span>
             </div>
             <span class="card-icon"><app-icon name="coins" /></span>
@@ -177,7 +177,21 @@
 
     <!-- ================= Colonne droite : les transactions du mois ================= -->
     <section class="main panel">
-      <h3>Transactions du mois</h3>
+      <div class="main-head">
+        <h3>Transactions du mois</h3>
+        <button class="with-icon" (click)="addFixedExpenses()" [disabled]="addingFixed()">
+          @if (!addingFixed()) {
+            <app-icon name="plus" />
+          }
+          {{ addingFixed() ? 'Ajout...' : 'Ajouter les dépenses fixes' }}
+        </button>
+      </div>
+      @if (fixedInfo()) {
+        <p class="info">{{ fixedInfo() }}</p>
+      }
+      @if (fixedError()) {
+        <p class="error">{{ fixedError() }}</p>
+      }
 
       <div class="add-tx">
         <h4>Ajouter une transaction</h4>
@@ -226,8 +240,27 @@
         }
       </div>
 
+      <div class="sort-bar" role="group" aria-label="Trier les transactions">
+        <span class="sort-label">Trier par</span>
+        @for (o of sortOptions; track o.key) {
+          <button
+            type="button"
+            class="sort-chip"
+            [class.active]="sortKey() === o.key"
+            [attr.aria-pressed]="sortKey() === o.key"
+            (click)="toggleSort(o.key)"
+          >
+            {{ o.label }}
+            @if (sortKey() === o.key) {
+              <app-icon [name]="sortDir() === 'asc' ? 'arrow-up' : 'arrow-down'" [strokeWidth]="2.4" />
+            }
+          </button>
+        }
+        <span class="sort-hint">{{ sortHint() }}</span>
+      </div>
+
       <div class="tx-table">
-        @for (t of data.currentMonthTransactions(); track t.id) {
+        @for (t of sortedTransactions(); track t.id) {
           <div class="tx-row" [class.income]="t.type === 'income'">
             <span class="tx-type">{{ typeLabel(t.type) }}</span>
             <input class="tx-name" [ngModel]="t.name" (change)="updateTxName(t.id, $any($event.target).value)" />
@@ -292,7 +325,7 @@
               </g>
             </svg>
             <p class="empty-title">Aucune transaction ce mois-ci pour l'instant.</p>
-            <p class="empty-hint">Ajoutez votre première transaction pour commencer le suivi !</p>
+            <p class="empty-hint">Ajoutez vos dépenses fixes ou votre première transaction pour commencer le suivi !</p>
           </div>
         }
       </div>

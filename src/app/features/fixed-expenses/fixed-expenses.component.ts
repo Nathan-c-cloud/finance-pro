@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { Frequency } from '../../core/models/models';
 import { formatEUR } from '../../core/services/format';
+import { FREQUENCIES, monthlyShare } from '../../core/services/fixed-expense';
 
 interface NewFixedForm {
   name: string;
@@ -26,17 +27,20 @@ function emptyForm(): NewFixedForm {
 })
 export class FixedExpensesComponent {
   formatEUR = formatEUR;
+  monthlyShare = monthlyShare;
+  frequencies = FREQUENCIES;
   form = signal<NewFixedForm>(emptyForm());
   saving = signal(false);
   error = signal<string | null>(null);
 
   constructor(public data: DataService) {}
 
+  /** Total actif ramené au mois : chaque dépense compte pour sa part mensuelle. */
   get total() {
     return this.data
       .fixedExpenses()
       .filter((f) => f.active)
-      .reduce((acc, f) => acc + f.amount, 0);
+      .reduce((acc, f) => acc + monthlyShare(f.amount, f.frequency), 0);
   }
 
   updateFormField<K extends keyof NewFixedForm>(key: K, value: NewFixedForm[K]) {
@@ -82,7 +86,12 @@ export class FixedExpensesComponent {
   }
 
   async updateFrequency(id: string, value: Frequency) {
-    await this.data.updateFixedExpense(id, { frequency: value });
+    this.error.set(null);
+    try {
+      await this.data.updateFixedExpense(id, { frequency: value });
+    } catch (e: any) {
+      this.error.set(e?.message ?? 'Erreur lors du changement de fréquence.');
+    }
   }
 
   async updateDay(id: string, value: string) {

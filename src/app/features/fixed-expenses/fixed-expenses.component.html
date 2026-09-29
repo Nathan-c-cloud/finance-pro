@@ -1,11 +1,12 @@
 <section class="panel">
   <div class="panel-header">
     <h3>Référentiel des dépenses fixes</h3>
-    <span class="total">Total actif : {{ formatEUR(total) }}</span>
+    <span class="total">Total actif par mois : {{ formatEUR(total) }}</span>
   </div>
   <p class="hint">
-    Ce référentiel sert de modèle. Le modifier n'affecte jamais les mois déjà créés : à chaque
-    "Nouveau mois", les dépenses actives sont copiées telles quelles, figées, dans ce mois.
+    Ce référentiel sert de modèle. Le modifier n'affecte jamais les mois déjà créés : sur la page Mois,
+    le bouton "Ajouter les dépenses fixes" copie les dépenses actives, figées, dans le mois affiché.
+    Saisis le montant de la période (12 € pour une dépense annuelle) : chaque mois reçoit sa part.
   </p>
 
   <div class="add-fe">
@@ -26,8 +27,9 @@
         }
       </select>
       <select [ngModel]="form().frequency" (ngModelChange)="updateFormField('frequency', $event)">
-        <option value="monthly">Mensuelle</option>
-        <option value="annual">Annuelle</option>
+        @for (o of frequencies; track o.value) {
+          <option [value]="o.value">{{ o.label }}</option>
+        }
       </select>
       <input
         type="number"
@@ -39,6 +41,11 @@
       />
       <button class="primary" (click)="add()" [disabled]="saving()">Ajouter</button>
     </div>
+    @if (form().frequency !== 'monthly' && form().amount) {
+      <p class="hint fe-preview">
+        ≈ {{ formatEUR(monthlyShare(form().amount!, form().frequency)) }} par mois
+      </p>
+    }
     @if (error()) {
       <p class="error">{{ error() }}</p>
     }
@@ -61,10 +68,16 @@
             <option [ngValue]="c.id">{{ c.name }}</option>
           }
         </select>
-        <select class="fe-freq" [ngModel]="f.frequency" (ngModelChange)="updateFrequency(f.id, $event)">
-          <option value="monthly">Mensuelle</option>
-          <option value="annual">Annuelle</option>
-        </select>
+        <div class="fe-freq">
+          <select [ngModel]="f.frequency" (ngModelChange)="updateFrequency(f.id, $event)">
+            @for (o of frequencies; track o.value) {
+              <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+          @if (f.frequency !== 'monthly') {
+            <small class="fe-share">≈ {{ formatEUR(monthlyShare(f.amount, f.frequency)) }} / mois</small>
+          }
+        </div>
         <input
           class="fe-day"
           type="number"
