@@ -30,7 +30,7 @@ interface ParsedFixed {
   amount: number;
   categoryName: string | null;
   frequency: Frequency;
-  paymentDay: number;
+  paymentDay: number | null;
   active: boolean;
 }
 interface ParsedMonth {
@@ -110,7 +110,7 @@ export interface FixedData {
   amount: number;
   categoryName: string | null;
   frequency: Frequency;
-  payment_day: number;
+  payment_day: number | null;
   active: boolean;
 }
 export interface TxData {
@@ -412,10 +412,10 @@ export async function parseWorkbook(buffer: ArrayBuffer): Promise<ParsedFile> {
           if (!f) err(SHEET.fixed, r, `Fréquence inconnue : « ${freqRaw} ».`);
           else frequency = f;
         }
-        let day = 1;
+        let day: number | null = null;
         if (dayRaw !== null) {
           const n = parseAmount(dayRaw);
-          if (n === null || !Number.isInteger(n) || n < 1 || n > 28) err(SHEET.fixed, r, `Jour de prélèvement invalide : « ${dayRaw} » (entre 1 et 28).`);
+          if (n === null || !Number.isInteger(n) || n < 1 || n > 31) err(SHEET.fixed, r, `Jour de prélèvement invalide : « ${dayRaw} » (entre 1 et 31, ou vide).`);
           else day = n;
         }
         let active = true;
@@ -666,7 +666,7 @@ export function buildImportPlan(file: ParsedFile, app: AppState): ImportPlan {
         const oldCat = existing.category_id ? appCatNameById.get(existing.category_id) ?? null : null;
         if (normalizeText(oldCat) !== normalizeText(f.categoryName)) { patch.categoryName = f.categoryName; changes.push(`catégorie ${oldCat ?? 'aucune'} → ${f.categoryName ?? 'aucune'}`); }
         if (existing.frequency !== f.frequency) { patch.frequency = f.frequency; changes.push(`fréquence ${FREQUENCY_LABELS[existing.frequency]} → ${FREQUENCY_LABELS[f.frequency]}`); }
-        if (existing.payment_day !== f.paymentDay) { patch.payment_day = f.paymentDay; changes.push(`jour ${existing.payment_day} → ${f.paymentDay}`); }
+        if (existing.payment_day !== f.paymentDay) { patch.payment_day = f.paymentDay; changes.push(`jour ${existing.payment_day ?? 'aucun'} → ${f.paymentDay ?? 'aucun'}`); }
         if (existing.active !== f.active) { patch.active = f.active; changes.push(`${existing.active ? 'active → inactive' : 'inactive → active'}`); }
         if (changes.length === 0) unchanged++;
         else {

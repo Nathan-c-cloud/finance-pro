@@ -10,6 +10,7 @@ import {
 } from '../models/models';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
+import { daysInMonth } from './date-fr';
 import { addMonths, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
@@ -478,6 +479,35 @@ export class DataService {
   }
 
   /**
+   * Dépenses fixes déjà présentes dans le mois dont la date n'est plus celle du jour de prélèvement du référentiel
+   * (jour modifié après leur ajout au mois). Même appariement par nom que addFixedExpensesToMonth.
+   * Sert à proposer une mise à jour : rien n'est modifié ici.
+   */
+  fixedDateChanges(monthId: string): { id: string; name: string; from: string | null; to: string | null }[] {
+    const month = this.months().find((m) => m.id === monthId);
+    if (!month) return [];
+    const present = new Map<string, Transaction[]>();
+    for (const t of this.transactions()) {
+      if (t.month_id !== monthId || t.type !== 'fixed') continue;
+      const key = nameKey(t.name);
+      present.set(key, [...(present.get(key) ?? []), t]);
+    }
+    const changes: { id: string; name: string; from: string | null; to: string | null }[] = [];
+    for (const f of this.fixedExpenses().filter((x) => x.active)) {
+      const t = present.get(nameKey(f.name))?.shift();
+      if (!t) continue;
+      const to = buildDate(month.month_date, f.payment_day);
+      if ((t.tx_date ?? null) !== to) changes.push({ id: t.id, name: t.name, from: t.tx_date ?? null, to });
+    }
+    return changes;
+  }
+
+  /** Applique les nouvelles dates proposées par fixedDateChanges (la date seulement : montant, catégorie et détail ne bougent pas). */
+  async applyFixedDateChanges(changes: { id: string; to: string | null }[]) {
+    for (const c of changes) await this.updateTransaction(c.id, { tx_date: c.to });
+  }
+
+  /**
    * Applique un plan d'import Excel (voir core/excel/excel-import.ts), par lots.
    * Ordre : réglage, catégories, mois, dépenses fixes, transactions. Puis tout est rechargé.
    * - includeDoubtful : identifiants des lignes "à vérifier" que l'utilisateur a cochées ;
@@ -653,8 +683,13 @@ function nameKey(name: string): string {
   return name.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').toLowerCase().trim();
 }
 
-function buildDate(monthDate: string, day: number): string {
+/**
+ * Date de la transaction créée depuis une dépense fixe : exactement le jour saisi, sans jour saisi pas de date.
+ * Seul cas où le jour change : il n'existe pas dans le mois (30 ou 31 en février, 31 en avril...), on prend alors le dernier jour du mois.
+ */
+function buildDate(monthDate: string, day: number | null): string | null {
+  if (day === null || day === undefined) return null;
   const [y, m] = monthDate.split('-');
-  const safeDay = Math.min(Math.max(day || 1, 1), 28);
-  return `${y}-${m}-${String(safeDay).padStart(2, '0')}`;
+  const last = daysInMonth(Number(y), Number(m));
+  return `${y}-${m}-${String(Math.min(Math.max(day, 1), last)).padStart(2, '0')}`;
 }

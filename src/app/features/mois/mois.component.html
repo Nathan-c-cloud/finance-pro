@@ -278,7 +278,7 @@
           </label>
           <label class="field f-date">
             <span class="field-label">Date</span>
-            <input type="date" [ngModel]="form().tx_date" (ngModelChange)="updateFormField('tx_date', $event)" />
+            <app-date-field [value]="form().tx_date" (valueChange)="updateFormField('tx_date', $event)" />
           </label>
           <label class="field f-detail">
             <span class="field-label">Détail (optionnel)</span>
@@ -361,7 +361,7 @@
             </label>
             <label class="field tx-date">
               <span class="field-label row-label">Date</span>
-              <input type="date" [ngModel]="t.tx_date" (change)="updateTxDate(t.id, $any($event.target).value)" />
+              <app-date-field [value]="t.tx_date" (valueChange)="updateTxDate(t.id, $event ?? '')" />
             </label>
             <div class="field toggle">
               <span class="field-label row-label">Statut</span>

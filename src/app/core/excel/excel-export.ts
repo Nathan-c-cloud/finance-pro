@@ -249,7 +249,7 @@ function addFixedExpenses(wb: Workbook, s: ExportSnapshot, catName: Map<string, 
       amount: f.amount,
       cat: f.category_id ? catName.get(f.category_id) ?? '' : '',
       freq: FREQUENCY_LABELS[f.frequency],
-      day: f.payment_day,
+      day: f.payment_day ?? null,
       active: f.active ? YES : NO,
       share: { formula: shareFormula(r), result: monthlyShare(f.amount, f.frequency) },
     });
@@ -264,8 +264,8 @@ function addFixedExpenses(wb: Workbook, s: ExportSnapshot, catName: Map<string, 
   listValidation(ws, `E2:E${MAX_ROWS}`, `"${freqList.join(',')}"`, 'Fréquence');
   listValidation(ws, `G2:G${MAX_ROWS}`, `"${YES},${NO}"`, 'Active');
   (ws as any).dataValidations.add(`F2:F${MAX_ROWS}`, {
-    type: 'whole', operator: 'between', formulae: [1, 28], allowBlank: true,
-    showErrorMessage: true, errorTitle: 'Jour de prélèvement', error: 'Saisis un jour entre 1 et 28.',
+    type: 'whole', operator: 'between', formulae: [1, 31], allowBlank: true,
+    showErrorMessage: true, errorTitle: 'Jour de prélèvement', error: 'Saisis un jour entre 1 et 31, ou laisse vide.',
   });
   (ws as any).dataValidations.add(`C2:C${MAX_ROWS}`, {
     type: 'decimal', operator: 'greaterThanOrEqual', formulae: [0], allowBlank: true,

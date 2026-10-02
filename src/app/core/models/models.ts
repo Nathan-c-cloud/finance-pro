@@ -15,7 +15,8 @@ export interface FixedExpense {
   amount: number;
   category_id: string | null;
   frequency: Frequency;
-  payment_day: number;
+  /** Jour du mois (1 à 31) où la dépense est prélevée ; null = pas de date (transaction ajoutée sans date). */
+  payment_day: number | null;
   active: boolean;
   created_at?: string;
 }

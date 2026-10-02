@@ -15,11 +15,11 @@ interface NewFixedForm {
   amount: number | null;
   category_id: string | null;
   frequency: Frequency;
-  payment_day: number;
+  payment_day: number | null;
 }
 
 function emptyForm(): NewFixedForm {
-  return { name: '', amount: null, category_id: null, frequency: 'monthly', payment_day: 1 };
+  return { name: '', amount: null, category_id: null, frequency: 'monthly', payment_day: null };
 }
 
 @Component({
@@ -50,7 +50,7 @@ export class FixedExpensesComponent {
       case 'name':
         return asc ? 'de A à Z' : 'de Z à A';
       case 'day':
-        return asc ? 'du 1er au 28' : 'du 28 au 1er';
+        return asc ? 'du 1er au 31, sans jour à la fin' : 'du 31 au 1er, sans jour à la fin';
       default:
         return 'ordre de création';
     }
@@ -62,9 +62,14 @@ export class FixedExpensesComponent {
     const sign = this.sortDir() === 'asc' ? 1 : -1;
     const byName = (a: FixedExpense, b: FixedExpense) =>
       a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true });
-    return [...list].sort((a, b) =>
-      key === 'name' ? sign * byName(a, b) : sign * (a.payment_day - b.payment_day) || byName(a, b)
-    );
+    // Sans jour de prélèvement : toujours en fin de liste, quel que soit le sens du tri.
+    const byDay = (a: FixedExpense, b: FixedExpense) => {
+      if (a.payment_day === null && b.payment_day === null) return 0;
+      if (a.payment_day === null) return 1;
+      if (b.payment_day === null) return -1;
+      return sign * (a.payment_day - b.payment_day);
+    };
+    return [...list].sort((a, b) => (key === 'name' ? sign * byName(a, b) : byDay(a, b) || byName(a, b)));
   });
 
   // Recherche par nom (affichage seulement) : le total actif reste calculé sur toute la liste
@@ -103,6 +108,10 @@ export class FixedExpensesComponent {
     const f = this.form();
     if (!f.name.trim() || f.amount === null) {
       this.error.set('Merci de renseigner au moins le nom et le montant.');
+      return;
+    }
+    if (!validDay(f.payment_day)) {
+      this.error.set('Le jour de prélèvement doit être un entier de 1 à 31, ou rester vide.');
       return;
     }
     this.saving.set(true);
@@ -146,9 +155,23 @@ export class FixedExpensesComponent {
     }
   }
 
-  async updateDay(id: string, value: string) {
-    const n = parseInt(value, 10);
-    if (!isNaN(n)) await this.data.updateFixedExpense(id, { payment_day: Math.min(Math.max(n, 1), 28) });
+  /** Jour vide = pas de date. Un jour invalide est refusé (et l'ancienne valeur réaffichée), jamais corrigé en douce. */
+  async updateDay(id: string, input: HTMLInputElement) {
+    const raw = input.value.trim();
+    const old = this.data.fixedExpenses().find((f) => f.id === id)?.payment_day ?? null;
+    const n = raw === '' ? null : Number(raw);
+    if (!validDay(n)) {
+      input.value = old === null ? '' : String(old);
+      this.error.set('Le jour de prélèvement doit être un entier de 1 à 31, ou rester vide.');
+      return;
+    }
+    this.error.set(null);
+    try {
+      await this.data.updateFixedExpense(id, { payment_day: n });
+    } catch (e: any) {
+      input.value = old === null ? '' : String(old);
+      this.error.set(e?.message ?? 'Erreur lors du changement de jour.');
+    }
   }
 
   async toggleActive(id: string, current: boolean) {
@@ -164,4 +187,9 @@ export class FixedExpensesComponent {
     });
     if (ok) await this.data.deleteFixedExpense(id);
   }
+}
+
+/** Jour de prélèvement valide : vide (null) ou entier de 1 à 31. */
+function validDay(n: number | null): boolean {
+  return n === null || (Number.isInteger(n) && n >= 1 && n <= 31);
 }

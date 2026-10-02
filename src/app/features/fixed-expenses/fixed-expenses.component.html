@@ -7,7 +7,8 @@
     Ce référentiel sert de modèle. Le modifier n'affecte jamais les mois déjà créés : sur la page Mois,
     le bouton "Ajouter les dépenses fixes" copie les dépenses actives, figées, dans le mois affiché.
     Saisis le montant de la période (12 € pour une dépense annuelle) : chaque mois reçoit sa part.
-    Le jour de prélèvement est le jour du mois (de 1 à 28) où la dépense est datée quand elle est ajoutée à un mois.
+    Le jour de prélèvement est facultatif : s'il est renseigné (de 1 à 31), c'est exactement ce jour que reçoit la transaction
+    quand la dépense est ajoutée à un mois (si le mois est plus court, ce sera son dernier jour). Laissé vide, la transaction est ajoutée sans date.
   </p>
 
   <div class="add-fe">
@@ -44,12 +45,13 @@
           }
         </select>
       </label>
-      <label class="field" title="Jour du mois (de 1 à 28) où la dépense est prélevée">
+      <label class="field" title="Jour du mois (de 1 à 31) où la dépense est prélevée. Vide : la transaction est ajoutée sans date.">
         <span class="field-label">Jour de prélèvement</span>
         <input
           type="number"
           min="1"
-          max="28"
+          max="31"
+          placeholder="Aucun"
           [ngModel]="form().payment_day"
           (ngModelChange)="updateFormField('payment_day', $event)"
         />
@@ -81,7 +83,7 @@
     <span>Montant (€)</span>
     <span>Catégorie</span>
     <span>Fréquence</span>
-    <span title="Jour du mois (de 1 à 28) où la dépense est prélevée">Jour de prélèvement</span>
+    <span title="Jour du mois (de 1 à 31) où la dépense est prélevée. Vide : la transaction est ajoutée sans date.">Jour de prélèvement</span>
     <span>État</span>
     <span></span>
   </div>
@@ -122,14 +124,15 @@
             <small class="fe-share">≈ {{ formatEUR(monthlyShare(f.amount, f.frequency)) }} / mois</small>
           }
         </label>
-        <label class="field fe-day" title="Jour du mois (de 1 à 28) où la dépense est prélevée">
+        <label class="field fe-day" title="Jour du mois (de 1 à 31) où la dépense est prélevée. Vide : la transaction est ajoutée sans date.">
           <span class="field-label row-label">Jour de prélèvement</span>
           <input
             type="number"
             min="1"
-            max="28"
+            max="31"
+            placeholder="Aucun"
             [ngModel]="f.payment_day"
-            (change)="updateDay(f.id, $any($event.target).value)"
+            (change)="updateDay(f.id, $any($event.target))"
           />
         </label>
         <div class="field fe-toggle">

@@ -6,6 +6,8 @@ import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
 import { gapClues, isLateIncome } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { formatDateFr } from '../../core/services/date-fr';
+import { DateFieldComponent } from '../../shared/date-field/date-field.component';
 import { SearchBoxComponent } from '../../shared/search-box/search-box.component';
 import { matchesSearch } from '../../core/services/search';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
@@ -52,7 +54,7 @@ function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Tran
 @Component({
   selector: 'app-mois',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent, SearchBoxComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent, SearchBoxComponent, DateFieldComponent],
   templateUrl: './mois.component.html',
   styleUrl: './mois.component.scss',
 })
@@ -151,13 +153,31 @@ export class MoisComponent {
     this.fixedError.set(null);
     try {
       const { added, alreadyThere, active } = await this.data.addFixedExpensesToMonth(cm.id);
+      // Lignes déjà dans le mois dont le jour de prélèvement a changé depuis : on propose de remettre leur date à jour.
+      const changes = this.data.fixedDateChanges(cm.id);
+      let dated = 0;
+      if (changes.length > 0) {
+        const shown = changes.slice(0, 8).map((c) => `${c.name} : ${formatDateFr(c.from) || 'sans date'} → ${formatDateFr(c.to) || 'sans date'}`);
+        if (changes.length > shown.length) shown.push(`et ${changes.length - shown.length} autre(s).`);
+        const ok = await this.dialog.confirm({
+          title: `Mettre à jour la date de ${changes.length} dépense${changes.length > 1 ? 's' : ''} fixe${changes.length > 1 ? 's' : ''} ?`,
+          message: `Ces dépenses sont déjà dans ${this.data.monthLabel(cm.month_date)}, mais leur date ne correspond plus au jour de prélèvement du référentiel.\n${shown.join('\n')}\nSeule la date change : le montant, la catégorie et le reste ne bougent pas.`,
+          confirmLabel: 'Mettre à jour les dates',
+          cancelLabel: 'Laisser tel quel',
+        });
+        if (ok) {
+          await this.data.applyFixedDateChanges(changes);
+          dated = changes.length;
+        }
+      }
+      const datedNote = dated > 0 ? `${dated} date(s) mise(s) à jour.` : '';
       if (active === 0) {
         this.fixedInfo.set('Aucune dépense fixe active dans le référentiel.');
       } else if (added === 0) {
-        this.fixedInfo.set('Toutes les dépenses fixes actives sont déjà dans ce mois.');
+        this.fixedInfo.set(['Toutes les dépenses fixes actives sont déjà dans ce mois.', datedNote].filter(Boolean).join(' '));
       } else {
         const skipped = alreadyThere > 0 ? `, ${alreadyThere} déjà présente(s) non recopiée(s)` : '';
-        this.fixedInfo.set(`${added} dépense(s) fixe(s) ajoutée(s)${skipped}.`);
+        this.fixedInfo.set([`${added} dépense(s) fixe(s) ajoutée(s)${skipped}.`, datedNote].filter(Boolean).join(' '));
       }
     } catch (e: any) {
       this.fixedError.set(e?.message ?? "Erreur lors de l'ajout des dépenses fixes.");
