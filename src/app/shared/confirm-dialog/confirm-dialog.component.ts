@@ -21,6 +21,26 @@ import { DialogService } from './dialog.service';
               <p>{{ p }}</p>
             }
           </div>
+          @if (d.prompt; as p) {
+            <label class="amount">
+              <span>{{ p.label }}</span>
+              <input
+                #amountInput
+                type="number"
+                step="0.01"
+                inputmode="decimal"
+                (input)="onAmount($event)"
+                (keydown.enter)="dialog.close(true)"
+              />
+            </label>
+            @if (previewParagraphs().length) {
+              <div class="preview">
+                @for (line of previewParagraphs(); track $index) {
+                  <p>{{ line }}</p>
+                }
+              </div>
+            }
+          }
           <div class="actions">
             <button #cancelBtn type="button" class="ghost cancel" (click)="dialog.close(false)">
               {{ d.cancelLabel ?? 'Annuler' }}
@@ -30,6 +50,7 @@ import { DialogService } from './dialog.service';
               type="button"
               class="primary"
               [class.danger]="d.danger"
+              [disabled]="!!d.prompt && dialog.amount() === null"
               (click)="dialog.close(true)"
             >
               {{ d.confirmLabel ?? 'Confirmer' }}
@@ -75,6 +96,37 @@ import { DialogService } from './dialog.service';
         font-size: 0.9rem;
         line-height: 1.45;
         color: var(--color-text-secondary);
+      }
+
+      .amount {
+        display: grid;
+        gap: 0.3rem;
+        margin: 0.4rem 0 0.7rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .amount input {
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+
+      .preview {
+        padding: 0.65rem 0.8rem;
+        border-radius: var(--radius-md, 10px);
+        background: var(--color-note-soft);
+        color: var(--color-note-text);
+      }
+
+      .preview p {
+        margin: 0 0 0.3rem;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        color: inherit;
+      }
+
+      .preview p:last-child {
+        margin-bottom: 0;
       }
 
       .actions {
@@ -137,8 +189,10 @@ export class ConfirmDialogComponent {
 
   private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>('cancelBtn');
   private confirmBtn = viewChild<ElementRef<HTMLButtonElement>>('confirmBtn');
+  private amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
   private previouslyFocused: HTMLElement | null = null;
   private wasOpen = false;
+  private selected = false;
 
   paragraphs = computed(() =>
     (this.dialog.current()?.message ?? '')
@@ -147,19 +201,47 @@ export class ConfirmDialogComponent {
       .filter(Boolean)
   );
 
+  previewParagraphs = computed(() => {
+    const preview = this.dialog.current()?.prompt?.preview;
+    const amount = this.dialog.amount();
+    if (!preview || amount === null) return [];
+    return preview(amount)
+      .split('\n')
+      .map((p) => p.trim())
+      .filter(Boolean);
+  });
+
+  onAmount(event: Event) {
+    const raw = (event.target as HTMLInputElement).value;
+    const n = raw === '' ? NaN : Number(raw);
+    this.dialog.amount.set(Number.isFinite(n) ? n : null);
+  }
+
   constructor() {
     // Ouverture : le focus va sur un bouton (Annuler si l'action est destructive) ; fermeture : il revient où il était.
     effect(() => {
       const open = this.dialog.current();
-      const target = open?.danger ? this.cancelBtn() : this.confirmBtn();
+      const target = open?.prompt
+        ? this.amountInput()
+        : open?.danger
+          ? this.cancelBtn()
+          : this.confirmBtn();
       if (open && target) {
         if (!this.wasOpen) {
           this.previouslyFocused = document.activeElement as HTMLElement | null;
           this.wasOpen = true;
         }
         target.nativeElement.focus();
+        const input = this.amountInput()?.nativeElement;
+        if (input && !this.selected) {
+          // Valeur de départ posée une seule fois : lier [value] effacerait un "-" tapé en cours de saisie.
+          input.value = this.dialog.amount() === null ? '' : String(this.dialog.amount());
+          input.select();
+          this.selected = true;
+        }
       } else if (!open && this.wasOpen) {
         this.wasOpen = false;
+        this.selected = false;
         this.previouslyFocused?.focus?.();
         this.previouslyFocused = null;
       }
@@ -178,7 +260,7 @@ export class ConfirmDialogComponent {
   /** Le focus reste dans la fenêtre : Tab alterne entre les deux boutons. */
   trapFocus(event: Event) {
     const e = event as KeyboardEvent;
-    const first = this.cancelBtn()?.nativeElement;
+    const first = this.amountInput()?.nativeElement ?? this.cancelBtn()?.nativeElement;
     const last = this.confirmBtn()?.nativeElement;
     if (!first || !last) return;
     if (e.shiftKey && document.activeElement === first) {

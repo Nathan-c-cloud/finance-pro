@@ -246,30 +246,58 @@ export class MoisComponent {
     return parts.join(' ');
   }
 
-  /** Calcule le solde qui ramène l'écart à zéro, puis demande confirmation avant de l'appliquer. */
+  /**
+   * Recalage : l'utilisateur confirme le solde que son compte affiche maintenant (la seule valeur certaine),
+   * puis le solde de début du mois, donc le solde de fin du mois précédent, est ajusté pour que le suivi retombe dessus.
+   * Si des mouvements sont déjà comptés ce mois ci, ils sont retirés : fin du mois précédent = réel − mouvements du mois.
+   */
   async recalibrate() {
     const cm = this.data.currentMonth();
     const info = this.data.startInfo();
     const r = this.data.reconciliation();
     if (!cm || !info || !r || !this.hasGap(r.gap)) return;
-    const newStart = Math.round((info.value + r.gap) * 100) / 100;
-    const ok = await this.dialog.confirm(
-      info.isFirst
-        ? {
-            title: 'Recaler le solde de départ du suivi ?',
-            message: `Le solde de départ du suivi passera de ${formatEUR(info.value)} à ${formatEUR(newStart)}, pour que le solde théorique d'aujourd'hui corresponde à ton solde réel.\nLes mois suivants partiront de ce nouveau solde.`,
-            confirmLabel: 'Recaler',
-          }
-        : {
-            title: `Recaler le solde de fin de ${info.prevLabel} ?`,
-            message: `Le solde de fin de ${info.prevLabel} passera de ${formatEUR(info.value)} à ${formatEUR(newStart)} (calculé avec ses transactions : ${formatEUR(info.prevComputedEnd!)}), pour que le solde théorique d'aujourd'hui corresponde à ton solde réel.\n${info.prevLabel} sera marqué « Solde forcé de fin de mois », et ${this.data.monthLabel(cm.month_date)} comme les mois suivants partiront de ce solde.`,
-            confirmLabel: 'Recaler',
-          }
-    );
-    if (!ok) return;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const movements = round2(r.theoretical - info.value);
+    const startFor = (real: number) => round2(real - movements);
+    const monthLabel = this.data.monthLabel(cm.month_date);
+    const target = info.isFirst ? 'le solde de départ du suivi' : `le solde de fin de ${info.prevLabel}`;
+
+    const preview = (real: number) => {
+      const next = startFor(real);
+      const lines = [
+        `Solde théorique d'aujourd'hui : ${formatEUR(r.theoretical)}, écart avec ton solde réel : ${formatEUR(round2(real - r.theoretical))}.`,
+        info.isFirst
+          ? `Le solde de départ du suivi passera de ${formatEUR(info.value)} à ${formatEUR(next)}.`
+          : `Le solde de fin de ${info.prevLabel} passera de ${formatEUR(info.value)} à ${formatEUR(next)}.`,
+      ];
+      lines.push(
+        Math.abs(movements) < 0.005
+          ? `Aucun mouvement n'est encore compté en ${monthLabel} : ce solde est exactement ton solde réel.`
+          : `${monthLabel} compte déjà ${formatEUR(movements)} de mouvements depuis le début du mois, d'où la différence avec ton solde réel.`
+      );
+      if (!info.isFirst) {
+        lines.push(`${info.prevLabel} sera marqué « Solde forcé de fin de mois », et ${monthLabel} comme les mois suivants partiront de ce solde.`);
+      }
+      return lines.join('\n');
+    };
+
+    const real = await this.dialog.promptAmount({
+      title: info.isFirst ? 'Recaler le solde de départ du suivi ?' : `Recaler le solde de fin de ${info.prevLabel} ?`,
+      message: `Indique le solde que ton compte affiche en ce moment. C'est la seule valeur certaine : ${target} est ajusté à partir d'elle, pas du solde théorique.`,
+      amountLabel: 'Solde réel de ton compte aujourd\'hui (€)',
+      amount: r.real,
+      preview,
+      confirmLabel: 'Recaler',
+    });
+    if (real === null) return;
+
     this.balanceError.set(null);
     try {
-      await this.data.setMonthStart(cm.id, newStart);
+      if (real !== r.real) await this.data.setRealBalanceCheck(cm.id, real);
+      const next = startFor(real);
+      // Si le nouveau solde retombe sur le calcul automatique, on supprime le forçage plutôt que d'en garder un sans écart.
+      const auto = !info.isFirst && info.prevComputedEnd !== null && Math.abs(next - info.prevComputedEnd) < 0.005;
+      await this.data.setMonthStart(cm.id, auto ? null : next);
     } catch (e: any) {
       this.balanceError.set(e?.message ?? 'Erreur lors du recalage.');
     }
