@@ -22,3 +22,11 @@ export function parseDateFr(text: string): string | null {
   if (y < 1900 || y > 2200 || mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return null;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
+
+/** Compare deux dates ISO du plus ancien au plus récent ; une transaction sans date passe toujours après les autres. */
+export function compareIsoDatesNullLast(a: string | null | undefined, b: string | null | undefined): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}

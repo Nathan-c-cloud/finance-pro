@@ -10,7 +10,7 @@ import {
 } from '../models/models';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
-import { daysInMonth } from './date-fr';
+import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
 import { addMonths, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
@@ -81,7 +81,7 @@ export class DataService {
     if (!cm) return [];
     return this.transactions()
       .filter((t) => t.month_id === cm.id)
-      .sort((a, b) => (a.tx_date ?? '').localeCompare(b.tx_date ?? ''));
+      .sort((a, b) => compareIsoDatesNullLast(a.tx_date, b.tx_date));
   });
 
   readonly reconciliation = computed(() => {

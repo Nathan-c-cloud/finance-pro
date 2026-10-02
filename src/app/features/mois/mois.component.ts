@@ -6,7 +6,7 @@ import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
 import { gapClues, isLateIncome } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
-import { formatDateFr } from '../../core/services/date-fr';
+import { compareIsoDatesNullLast, formatDateFr } from '../../core/services/date-fr';
 import { DateFieldComponent } from '../../shared/date-field/date-field.component';
 import { SearchBoxComponent } from '../../shared/search-box/search-box.component';
 import { matchesSearch } from '../../core/services/search';
@@ -40,15 +40,16 @@ function emptyForm(type: TxType): NewTxForm {
 
 type SortKey = 'date' | 'name';
 
-/** Tri stable : à critère égal, l'ordre d'origine (par date) est conservé. Sans date : en premier en croissant. */
+/** Tri stable : à critère égal, l'ordre d'origine (par date) est conservé. Sans date : toujours à la fin, dans les deux sens. */
 function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Transaction[] {
   const sign = dir === 'asc' ? 1 : -1;
-  const compare =
-    key === 'date'
-      ? (a: Transaction, b: Transaction) => (a.tx_date ?? '').localeCompare(b.tx_date ?? '')
-      : (a: Transaction, b: Transaction) =>
-          a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true });
-  return [...list].sort((a, b) => sign * compare(a, b));
+  if (key === 'date') {
+    return [...list].sort((a, b) => {
+      if (!a.tx_date || !b.tx_date) return compareIsoDatesNullLast(a.tx_date, b.tx_date); // sans date : fin de liste quel que soit le sens
+      return sign * a.tx_date.localeCompare(b.tx_date);
+    });
+  }
+  return [...list].sort((a, b) => sign * a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true }));
 }
 
 @Component({
@@ -83,7 +84,7 @@ export class MoisComponent {
   sortHint = computed(() => {
     const asc = this.sortDir() === 'asc';
     return this.sortKey() === 'date'
-      ? asc ? 'du plus ancien au plus récent' : 'du plus récent au plus ancien'
+      ? (asc ? 'du plus ancien au plus récent' : 'du plus récent au plus ancien') + ', sans date à la fin'
       : asc ? 'de A à Z' : 'de Z à A';
   });
   sortedTransactions = computed<Transaction[]>(() =>
