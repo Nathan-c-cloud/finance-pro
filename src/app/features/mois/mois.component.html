@@ -129,6 +129,9 @@
                     </button>
                   }
                   <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
+                  @if (undatedNote(); as note) {
+                    <small class="recon-note">{{ note }}</small>
+                  }
                   <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
                   @if (r.gap !== null) {
                     <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">

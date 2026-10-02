@@ -222,6 +222,14 @@ export class MoisComponent {
     }
   }
 
+  /** Rappel sous le solde théorique : les dépenses sans date ne sont pas comptées aujourd'hui (null s'il n'y en a pas). */
+  undatedNote(): string | null {
+    const c = gapClues(this.data.currentMonthTransactions());
+    const u = c.undatedExpenses.length;
+    if (u === 0) return null;
+    return `${u} dépense${u > 1 ? 's' : ''} sans date (${formatEUR(c.undatedTotal)}) ${u > 1 ? 'ne sont' : 'n\'est'} pas comptée${u > 1 ? 's' : ''} ici : sans date, on ne sait pas si ${u > 1 ? 'elles sont' : 'elle est'} déjà prélevée${u > 1 ? 's' : ''}. ${u > 1 ? 'Elles restent' : 'Elle reste'} dans le solde de fin de mois.`;
+  }
+
   /** Écart non nul (au centime près) entre le solde réel constaté et le solde théorique. */
   hasGap(gap: number | null): gap is number {
     return gap !== null && Math.abs(gap) >= 0.005;
@@ -254,6 +262,12 @@ export class MoisComponent {
       }
     } else {
       parts.push(`Ton compte a ${amount} de moins que prévu.`);
+      const u = c.undatedExpenses.length;
+      if (u > 0) {
+        parts.push(
+          `${u} dépense${u > 1 ? 's' : ''} sans date (${formatEUR(c.undatedTotal)} au total) ne ${u > 1 ? 'sont' : 'est'} pas comptée${u > 1 ? 's' : ''} aujourd'hui : si ${u > 1 ? 'certaines' : 'elle'} ${u > 1 ? 'sont' : 'est'} déjà prélevée${u > 1 ? 's' : ''}, donne-${u > 1 ? 'leur' : 'lui'} sa date.`
+        );
+      }
       const n = c.laterExpenses.length;
       if (n > 0) {
         parts.push(

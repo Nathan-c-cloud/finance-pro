@@ -91,15 +91,16 @@ function normalize(s: string): string {
 
 /** Solde "théorique à aujourd'hui" pour le rapprochement bancaire :
  *  - un revenu compte seulement s'il est coché "Reçu" (sa date n'importe pas) ;
- *  - une dépense (épargne comprise) compte dès que sa date est passée ou aujourd'hui,
- *    ou si elle n'a pas de date. */
+ *  - une dépense (épargne comprise) compte dès que sa date est passée ou aujourd'hui ;
+ *    une dépense SANS date n'est pas comptée (on ne sait pas quand elle sort : l'app ne devine rien),
+ *    elle reste comptée dans le solde théorique de fin de mois. */
 export function theoreticalBalanceToday(
   startingBalance: number,
   transactions: Transaction[],
   today: Date = new Date()
 ): number {
   const isPastOrToday = (t: Transaction) => {
-    if (!t.tx_date) return true; // pas de date = considérée déjà survenue
+    if (!t.tx_date) return false; // pas de date = pas comptée aujourd'hui
     return new Date(t.tx_date + 'T00:00:00') <= today;
   };
   const income = sum(transactions.filter((t) => t.type === 'income' && t.received === true).map((t) => t.amount));
@@ -114,18 +115,21 @@ export function theoreticalBalanceToday(
 /**
  * Pistes pour expliquer un écart de rapprochement (solde réel moins solde théorique) :
  * les revenus pas encore cochés "Reçu" (qui gonflent l'écart) et les dépenses datées plus tard
- * (pas comptées dans le théorique d'aujourd'hui, donc possiblement déjà prélevées).
+ * et les dépenses datées plus tard ou sans date (pas comptées dans le théorique d'aujourd'hui, donc possiblement déjà prélevées).
  */
 export function gapClues(transactions: Transaction[], today: Date = new Date()) {
   const unreceivedIncomes = transactions.filter((t) => t.type === 'income' && t.received !== true);
   const laterExpenses = transactions.filter(
     (t) => t.type !== 'income' && !!t.tx_date && new Date(t.tx_date + 'T00:00:00') > today
   );
+  const undatedExpenses = transactions.filter((t) => t.type !== 'income' && !t.tx_date);
   return {
     unreceivedIncomes,
     unreceivedTotal: sum(unreceivedIncomes.map((t) => t.amount)),
     laterExpenses,
     laterTotal: sum(laterExpenses.map((t) => t.amount)),
+    undatedExpenses,
+    undatedTotal: sum(undatedExpenses.map((t) => t.amount)),
   };
 }
 
