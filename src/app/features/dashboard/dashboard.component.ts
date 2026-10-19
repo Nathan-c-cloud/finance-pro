@@ -5,6 +5,7 @@ import { DataService } from '../../core/services/data.service';
 import { formatEUR } from '../../core/services/format';
 import { buildBreakdown } from '../../core/services/breakdown';
 import { SEMANTIC_COLORS } from '../../core/theme/chart-colors';
+import { IconComponent } from '../../shared/icon/icon.component';
 import { MonthPickerComponent } from '../../shared/month-picker/month-picker.component';
 
 Chart.register(...registerables);
@@ -14,7 +15,7 @@ Chart.defaults.color = '#68736d';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [MonthPickerComponent],
+  imports: [MonthPickerComponent, IconComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -57,6 +58,21 @@ export class DashboardComponent {
 
   eur = formatEUR;
   private router = inject(Router);
+
+  /**
+   * Bandeau « solde de fin de mois forcé » repliable. Le repli est mémorisé (navigateur) pour CETTE liste de mois forcés :
+   * si un mois est forcé ou modifié ensuite, la liste change et le bandeau se rouvre de lui-même.
+   */
+  private static readonly COLLAPSE_KEY = 'forced-notice-collapsed';
+  private forcedSignature = computed(() => this.data.forcedMonths().map((f) => `${f.month.id}:${f.forced}`).join('|'));
+  private collapsedFor = signal<string | null>(readCollapsed(DashboardComponent.COLLAPSE_KEY));
+  forcedCollapsed = computed(() => this.forcedSignature() !== '' && this.collapsedFor() === this.forcedSignature());
+
+  toggleForcedNotice() {
+    const next = this.forcedCollapsed() ? null : this.forcedSignature();
+    this.collapsedFor.set(next);
+    writeCollapsed(DashboardComponent.COLLAPSE_KEY, next);
+  }
 
   openMonth(id: string) {
     this.data.selectMonth(id);
@@ -223,5 +239,22 @@ export class DashboardComponent {
         },
       },
     });
+  }
+}
+
+/** Lecture / écriture du repli dans le navigateur : sans stockage disponible (navigation privée), le bandeau reste simplement ouvert. */
+function readCollapsed(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeCollapsed(key: string, value: string | null) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    /* ignoré */
   }
 }

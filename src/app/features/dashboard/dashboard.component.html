@@ -4,18 +4,39 @@
   <p>Pas encore de données à afficher.</p>
 } @else {
   @if (data.forcedMonths().length > 0) {
-    <div class="forced-notice" role="status">
-      <strong>Solde de fin de mois forcé</strong>
-      <ul>
-        @for (f of data.forcedMonths(); track f.month.id) {
-          <li>
-            {{ data.monthLabel(f.month.month_date) }} : forcé à {{ eur(f.forced) }}, alors que ses transactions donnent
-            {{ eur(f.computed) }}.
-            <button class="link-btn" (click)="openMonth(f.month.id)">Voir le mois</button>
-          </li>
-        }
-      </ul>
-      <p>La courbe du solde repart de ces valeurs, et les modifications de ces mois ne se répercutent plus sur les mois suivants.</p>
+    <div class="forced-notice" role="status" [class.collapsed]="forcedCollapsed()">
+      <button
+        type="button"
+        class="forced-toggle"
+        [attr.aria-expanded]="!forcedCollapsed()"
+        aria-controls="forced-notice-body"
+        (click)="toggleForcedNotice()"
+      >
+        <strong>
+          Solde de fin de mois forcé
+          @if (data.forcedMonths().length > 1) {
+            <span class="forced-count">{{ data.forcedMonths().length }} mois</span>
+          }
+        </strong>
+        <span class="forced-action">
+          {{ forcedCollapsed() ? 'Afficher' : 'Réduire' }}
+          <app-icon [name]="forcedCollapsed() ? 'chevron-down' : 'chevron-up'" />
+        </span>
+      </button>
+      @if (!forcedCollapsed()) {
+        <div id="forced-notice-body">
+          <ul>
+            @for (f of data.forcedMonths(); track f.month.id) {
+              <li>
+                {{ data.monthLabel(f.month.month_date) }} : forcé à {{ eur(f.forced) }}, alors que ses transactions donnent
+                {{ eur(f.computed) }}.
+                <button class="link-btn" (click)="openMonth(f.month.id)">Voir le mois</button>
+              </li>
+            }
+          </ul>
+          <p>La courbe du solde repart de ces valeurs, et les modifications de ces mois ne se répercutent plus sur les mois suivants.</p>
+        </div>
+      }
     </div>
   }
 
