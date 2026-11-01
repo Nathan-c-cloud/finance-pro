@@ -134,6 +134,22 @@ export function gapClues(transactions: Transaction[], today: Date = new Date()) 
 }
 
 /**
+ * Opérations d'un mois pas encore réalisées à la date d'aujourd'hui : dépenses sans date ou datées plus tard,
+ * revenus pas cochés "Reçu". Elles comptent pourtant dans le solde de fin de mois (donc dans le solde de début
+ * du mois suivant), alors qu'elles ne sont pas passées sur le compte.
+ * `net` est leur effet sur le solde de fin : revenus en plus, dépenses (épargne comprise) en moins.
+ */
+export function pendingOperations(transactions: Transaction[], today: Date = new Date()) {
+  const items = transactions.filter((t) =>
+    t.type === 'income'
+      ? t.received !== true
+      : !t.tx_date || new Date(t.tx_date + 'T00:00:00') > today
+  );
+  const net = sum(items.map((t) => (t.type === 'income' ? t.amount : -t.amount)));
+  return { items, net: Math.round(net * 100) / 100 };
+}
+
+/**
  * Revenu dont la date est déjà passée (avant aujourd'hui) mais qui n'est pas coché "Reçu" :
  * probablement à cocher, sinon il fausse le solde théorique d'aujourd'hui.
  */

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
-import { gapClues, isLateIncome } from '../../core/services/calc';
+import { addMonths, gapClues, isLateIncome, pendingOperations, toMonthDateString } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { compareIsoDatesNullLast, formatDateFr } from '../../core/services/date-fr';
 import { DateFieldComponent } from '../../shared/date-field/date-field.component';
@@ -51,6 +51,8 @@ function sortTransactions(list: Transaction[], key: SortKey, dir: SortDir): Tran
   }
   return [...list].sort((a, b) => sign * a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true }));
 }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 @Component({
   selector: 'app-mois',
@@ -131,7 +133,34 @@ export class MoisComponent {
     this.error.set(null);
     this.info.set(null);
     try {
-      const { created } = await this.data.generateNextMonth();
+      const cm = this.data.currentMonth();
+      const nextDate = cm ? toMonthDateString(addMonths(new Date(cm.month_date + 'T00:00:00'), 1)) : null;
+      const nextExists = !!nextDate && this.data.months().some((m) => m.month_date === nextDate);
+
+      // Opérations pas encore réalisées : elles pèsent dans le solde de fin du mois, donc dans le solde de départ du suivant.
+      let decision: { choice: string | null; amount: number | null } | null = null;
+      let pendingIds: string[] = [];
+      if (cm && nextDate && !nextExists) {
+        const pending = pendingOperations(this.data.currentMonthTransactions());
+        if (pending.items.length > 0) {
+          const asked = await this.askPendingDecision(cm.month_date, nextDate, pending);
+          if (!asked) return; // annulé : rien n'est créé, on peut corriger les lignes à la main
+          decision = asked;
+          pendingIds = pending.items.map((t) => t.id);
+        }
+      }
+
+      const { month, created } = await this.data.generateNextMonth();
+      if (created && decision) {
+        if (decision.choice === 'move') await this.data.moveTransactions(pendingIds, month.id);
+        else if (decision.choice === 'delete') await this.data.deleteTransactions(pendingIds);
+        if (decision.amount !== null) {
+          const carried = this.data.currentSummary()?.startingBalance ?? 0;
+          if (Math.abs(decision.amount - carried) >= 0.005) {
+            await this.data.setMonthStart(month.id, decision.amount);
+          }
+        }
+      }
       this.fixedInfo.set(null);
       this.fixedError.set(null);
       this.info.set(
@@ -144,6 +173,75 @@ export class MoisComponent {
     } finally {
       this.generating.set(false);
     }
+  }
+
+  private askPendingDecision(
+    prevDate: string,
+    nextDate: string,
+    pending: ReturnType<typeof pendingOperations>
+  ) {
+    const prevLabel = this.data.monthLabel(prevDate);
+    const nextLabel = this.data.monthLabel(nextDate);
+    const n = pending.items.length;
+    const summary = this.data.currentSummary();
+    const endBalance = summary?.endingBalance ?? 0;
+    const ended = new Date() >= new Date(nextDate + 'T00:00:00');
+
+    const lines = pending.items.slice(0, 8).map((t) => {
+      const income = t.type === 'income';
+      const when = income
+        ? t.tx_date
+          ? `revenu non reçu, prévu le ${formatDateFr(t.tx_date)}`
+          : 'revenu non reçu'
+        : t.tx_date
+          ? `prévu le ${formatDateFr(t.tx_date)}`
+          : 'sans date';
+      return `${t.name} : ${income ? '+' : '−'}${formatEUR(t.amount)} (${when})`;
+    });
+    if (n > lines.length) lines.push(`et ${n - lines.length} autre${n - lines.length > 1 ? 's' : ''}…`);
+
+    const startWith = (choice: string | null) =>
+      round2(choice === 'keep' ? endBalance : endBalance - pending.net);
+
+    return this.dialog.promptChoice({
+      title: `${n} opération${n > 1 ? 's' : ''} de ${prevLabel} ${n > 1 ? 'ne sont' : 'n\'est'} pas encore réalisée${n > 1 ? 's' : ''}`,
+      message:
+        `Elles comptent dans le solde de fin de ${prevLabel} (${formatEUR(endBalance)}), qui devient le solde de départ de ${nextLabel}. Ce solde peut donc différer de celui de ta banque.` +
+        (ended ? '' : `\n${prevLabel} n'est pas terminé : ces opérations sont peut être simplement à venir.`),
+      items: lines,
+      choices: [
+        {
+          value: 'move',
+          label: `Les reporter dans ${nextLabel}`,
+          hint: 'Elles quittent le mois précédent et reviennent dans le suivant, où tu pourras les dater ou les cocher.',
+        },
+        {
+          value: 'delete',
+          label: `Les supprimer de ${prevLabel}`,
+          hint: 'Elles n\'ont pas eu lieu : elles disparaissent du suivi.',
+        },
+        {
+          value: 'keep',
+          label: `Les garder dans ${prevLabel}`,
+          hint: 'Elles restent comptées dans le solde de départ du nouveau mois.',
+        },
+      ],
+      defaultChoice: 'move',
+      amountLabel: ended ? 'Solde réel de ton compte aujourd\'hui (facultatif)' : undefined,
+      amountHint: ended
+        ? `Si tu le renseignes, il devient le solde de départ de ${nextLabel}, à la place du report calculé.`
+        : undefined,
+      preview: (choice, amount) => {
+        const start = startWith(choice);
+        const out = [`Solde de départ de ${nextLabel} : ${formatEUR(start)}.`];
+        if (amount !== null && Math.abs(amount - start) >= 0.005) {
+          out.push(`Avec ton solde réel, il sera de ${formatEUR(amount)} (écart de ${formatEUR(round2(amount - start))}).`);
+        }
+        return out.join('\n');
+      },
+      confirmLabel: `Créer ${nextLabel}`,
+      cancelLabel: 'Annuler',
+    });
   }
 
   async addFixedExpenses() {
@@ -291,7 +389,6 @@ export class MoisComponent {
     const info = this.data.startInfo();
     const r = this.data.reconciliation();
     if (!cm || !info || !r || !this.hasGap(r.gap)) return;
-    const round2 = (n: number) => Math.round(n * 100) / 100;
     const movements = round2(r.theoretical - info.value);
     const startFor = (real: number) => round2(real - movements);
     const monthLabel = this.data.monthLabel(cm.month_date);

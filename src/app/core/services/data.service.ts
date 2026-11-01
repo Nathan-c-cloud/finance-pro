@@ -313,6 +313,24 @@ export class DataService {
     this.transactions.update((list) => list.filter((t) => t.id !== id));
   }
 
+  /** Supprime plusieurs transactions en une requête. */
+  async deleteTransactions(ids: string[]) {
+    if (ids.length === 0) return;
+    const { error } = await this.supa.client.from('transactions').delete().in('id', ids);
+    if (error) throw error;
+    const gone = new Set(ids);
+    this.transactions.update((list) => list.filter((t) => !gone.has(t.id)));
+  }
+
+  /** Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas). */
+  async moveTransactions(ids: string[], monthId: string) {
+    if (ids.length === 0) return;
+    const { error } = await this.supa.client.from('transactions').update({ month_id: monthId }).in('id', ids);
+    if (error) throw error;
+    const moved = new Set(ids);
+    this.transactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: monthId } : t)));
+  }
+
   // ------------------------------------------------------------
   // Réglages
   // ------------------------------------------------------------

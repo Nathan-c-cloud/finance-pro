@@ -8,7 +8,9 @@ import { DialogService } from './dialog.service';
     @if (dialog.current(); as d) {
       <div class="backdrop" (click)="onBackdrop($event)">
         <div
+          #box
           class="dialog"
+          [class.wide]="!!d.choice"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="dlg-title"
@@ -36,6 +38,58 @@ import { DialogService } from './dialog.service';
             @if (previewParagraphs().length) {
               <div class="preview">
                 @for (line of previewParagraphs(); track $index) {
+                  <p>{{ line }}</p>
+                }
+              </div>
+            }
+          }
+          @if (d.choice; as c) {
+            @if (c.items?.length) {
+              <ul class="items">
+                @for (line of c.items; track $index) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            }
+            @if (c.choices?.length) {
+              <div class="choices" role="radiogroup">
+                @for (o of c.choices; track o.value) {
+                  <label class="choice" [class.on]="dialog.choice() === o.value">
+                    <input
+                      type="radio"
+                      name="dlg-choice"
+                      [value]="o.value"
+                      [checked]="dialog.choice() === o.value"
+                      (change)="dialog.choice.set(o.value)"
+                    />
+                    <span class="c-text">
+                      <strong>{{ o.label }}</strong>
+                      @if (o.hint) {
+                        <small>{{ o.hint }}</small>
+                      }
+                    </span>
+                  </label>
+                }
+              </div>
+            }
+            @if (c.amountLabel) {
+              <label class="amount">
+                <span>{{ c.amountLabel }}</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  inputmode="decimal"
+                  (input)="onAmount($event)"
+                  (keydown.enter)="dialog.close(true)"
+                />
+                @if (c.amountHint) {
+                  <small class="amount-hint">{{ c.amountHint }}</small>
+                }
+              </label>
+            }
+            @if (choicePreview().length) {
+              <div class="preview">
+                @for (line of choicePreview(); track $index) {
                   <p>{{ line }}</p>
                 }
               </div>
@@ -83,6 +137,79 @@ import { DialogService } from './dialog.service';
           0 2px 6px rgba(23, 32, 28, 0.08),
           0 18px 48px rgba(23, 32, 28, 0.22);
         animation: pop 0.18s ease;
+      }
+
+      .dialog.wide {
+        width: min(520px, 100%);
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+      }
+
+      .items {
+        list-style: none;
+        margin: 0.2rem 0 0.8rem;
+        padding: 0.55rem 0.8rem;
+        border-radius: var(--radius-md, 10px);
+        background: var(--color-surface-muted);
+        border: 1px solid var(--color-border);
+        font-size: 0.84rem;
+        line-height: 1.4;
+        max-height: 11rem;
+        overflow-y: auto;
+      }
+
+      .items li {
+        padding: 0.18rem 0;
+      }
+
+      .choices {
+        display: grid;
+        gap: 0.4rem;
+        margin: 0 0 0.8rem;
+      }
+
+      .choice {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-md, 10px);
+        cursor: pointer;
+        transition:
+          border-color 0.12s ease,
+          background 0.12s ease;
+      }
+
+      .choice:hover {
+        background: var(--color-hover);
+      }
+
+      .choice.on {
+        border-color: var(--color-primary);
+        background: var(--color-primary-soft);
+      }
+
+      .choice input {
+        margin-top: 0.2rem;
+        accent-color: var(--color-primary);
+      }
+
+      .c-text {
+        display: grid;
+        gap: 0.1rem;
+      }
+
+      .c-text strong {
+        font-size: 0.9rem;
+      }
+
+      .c-text small,
+      .amount-hint {
+        font-size: 0.78rem;
+        font-weight: 400;
+        line-height: 1.35;
+        color: var(--color-text-secondary);
       }
 
       h2 {
@@ -190,6 +317,7 @@ export class ConfirmDialogComponent {
   private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>('cancelBtn');
   private confirmBtn = viewChild<ElementRef<HTMLButtonElement>>('confirmBtn');
   private amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
+  private box = viewChild<ElementRef<HTMLElement>>('box');
   private previouslyFocused: HTMLElement | null = null;
   private wasOpen = false;
   private selected = false;
@@ -206,6 +334,15 @@ export class ConfirmDialogComponent {
     const amount = this.dialog.amount();
     if (!preview || amount === null) return [];
     return preview(amount)
+      .split('\n')
+      .map((p) => p.trim())
+      .filter(Boolean);
+  });
+
+  choicePreview = computed(() => {
+    const preview = this.dialog.current()?.choice?.preview;
+    if (!preview) return [];
+    return preview(this.dialog.choice(), this.dialog.amount())
       .split('\n')
       .map((p) => p.trim())
       .filter(Boolean);
@@ -257,11 +394,17 @@ export class ConfirmDialogComponent {
     if (event.target === event.currentTarget) this.dialog.close(false);
   }
 
-  /** Le focus reste dans la fenêtre : Tab alterne entre les deux boutons. */
+  /** Le focus reste dans la fenêtre : Tab fait le tour des éléments actifs, sans en sortir. */
   trapFocus(event: Event) {
     const e = event as KeyboardEvent;
-    const first = this.amountInput()?.nativeElement ?? this.cancelBtn()?.nativeElement;
-    const last = this.confirmBtn()?.nativeElement;
+    const box = this.box()?.nativeElement;
+    if (!box) return;
+    // Dans un groupe de boutons radio, seul le choix coché est atteignable au clavier.
+    const focusables = Array.from(
+      box.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select')
+    ).filter((el) => !(el instanceof HTMLInputElement && el.type === 'radio' && !el.checked));
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
     if (!first || !last) return;
     if (e.shiftKey && document.activeElement === first) {
       e.preventDefault();

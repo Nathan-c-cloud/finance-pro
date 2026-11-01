@@ -19,9 +19,35 @@ export interface AmountPromptOptions extends ConfirmOptions {
   preview?: (amount: number) => string;
 }
 
+export interface ChoiceOption {
+  value: string;
+  label: string;
+  hint?: string;
+}
+
+/** Fenêtre avec liste d'éléments, choix unique et montant facultatif (ex. création du mois suivant). */
+export interface ChoiceDialogOptions extends ConfirmOptions {
+  /** Lignes affichées dans un encadré (par exemple les opérations concernées). */
+  items?: string[];
+  choices?: ChoiceOption[];
+  /** Choix sélectionné à l'ouverture (le premier par défaut). */
+  defaultChoice?: string;
+  /** Champ montant facultatif : s'il est absent, la fenêtre n'en affiche pas. */
+  amountLabel?: string;
+  amountHint?: string;
+  /** Texte sous les choix, recalculé quand le choix ou le montant change (un paragraphe par ligne). */
+  preview?: (choice: string | null, amount: number | null) => string;
+}
+
+export interface ChoiceResult {
+  choice: string | null;
+  amount: number | null;
+}
+
 interface OpenDialog extends ConfirmOptions {
   resolve: (confirmed: boolean) => void;
   prompt?: { label: string; preview?: (amount: number) => string };
+  choice?: ChoiceDialogOptions;
 }
 
 /**
@@ -50,6 +76,23 @@ export class DialogService {
         ...options,
         prompt: { label: options.amountLabel, preview: options.preview },
         resolve: (ok) => resolve(ok ? this.amount() : null),
+      })
+    );
+  }
+
+  /** Choix sélectionné dans une fenêtre à choix (voir promptChoice). */
+  readonly choice = signal<string | null>(null);
+
+  /** Renvoie le choix et le montant saisi (facultatif), ou null si la fenêtre est annulée. */
+  promptChoice(options: ChoiceDialogOptions): Promise<ChoiceResult | null> {
+    this.current()?.resolve(false);
+    this.amount.set(null);
+    this.choice.set(options.defaultChoice ?? options.choices?.[0]?.value ?? null);
+    return new Promise<ChoiceResult | null>((resolve) =>
+      this.current.set({
+        ...options,
+        choice: options,
+        resolve: (ok) => resolve(ok ? { choice: this.choice(), amount: this.amount() } : null),
       })
     );
   }
