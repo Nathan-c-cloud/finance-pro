@@ -31,10 +31,10 @@
     <details class="rules">
       <summary>Comment sont calculées les suggestions ?</summary>
       <ul>
-        <li>Elles regardent la médiane (la valeur du milieu, moins sensible à un mois exceptionnel) des 3 derniers mois terminés.</li>
-        <li>Budget dépassé au moins 2 mois sur 3 : on propose de le relever à la médiane.</li>
+        <li>Une catégorie n'est regardée que si elle a coûté au moins 50 € chacun des 3 derniers mois terminés. En dessous, pas de suggestion.</li>
+        <li>Budget dépassé au moins 2 mois sur 3 : on propose de le relever à la médiane (la valeur du milieu, moins sensible à un mois exceptionnel).</li>
         <li>Toujours sous 80 % du budget 3 mois de suite : on propose de le baisser au mois le plus élevé, qui couvre encore les 3 mois.</li>
-        <li>Pas de budget et au moins 50 € par mois, soit au moins 8 % de tes dépenses hors épargne : on propose d'en fixer un.</li>
+        <li>Pas de budget : on propose la médiane des 3 mois.</li>
         <li>Les montants sont arrondis aux 5 € supérieurs. Rien n'est appliqué sans ton accord.</li>
       </ul>
     </details>

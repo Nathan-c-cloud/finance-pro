@@ -105,12 +105,15 @@ export interface SuggestionResult {
 export const SUGGESTION_WINDOW = 3;
 
 /**
- * Règles (sur les 3 derniers mois terminés, médiane des dépenses de la catégorie) :
+ * Règles (sur les 3 derniers mois terminés). Une catégorie n'est regardée que si elle a coûté au moins 50 € CHAQUE mois :
+ * en dessous, ce sont de petites sommes et un budget n'aurait pas de sens.
  * - budget dépassé au moins 2 mois sur 3 : proposer de le relever à la médiane ;
  * - dépense restée sous 80 % du budget les 3 mois : proposer de le baisser au mois le plus élevé (arrondi), qui couvre encore les 3 mois ;
- * - pas de budget et une dépense médiane d'au moins 50 € qui pèse au moins 8 % de tes dépenses (hors épargne) : proposer un budget.
+ * - pas de budget : proposer la médiane comme budget.
  * Les montants sont arrondis au multiple de 5 € supérieur. Les catégories archivées et l'épargne sont ignorées.
  */
+export const SUGGESTION_MIN_MONTHLY = 50;
+
 export function suggestBudgets(
   months: MonthRow[],
   transactions: Transaction[],
@@ -124,18 +127,9 @@ export function suggestBudgets(
   }
 
   const basedOn = window[window.length - 1].month_date.slice(0, 7);
-  const stats = categoryStats(window, transactions, categories).filter((s) => !s.category.archived);
-
-  // Dépenses totales par mois (hors épargne), pour juger si une catégorie sans budget pèse lourd.
-  const savingsIds = new Set(categories.filter(isSavings).map((c) => c.id));
-  const totals = window.map((m) =>
-    sum(
-      transactions
-        .filter((t) => t.month_id === m.id && t.type !== 'income' && !(t.category_id && savingsIds.has(t.category_id)))
-        .map((t) => t.amount)
-    )
+  const stats = categoryStats(window, transactions, categories).filter(
+    (s) => !s.category.archived && s.amounts.every((a) => a >= SUGGESTION_MIN_MONTHLY)
   );
-  const medianTotal = median(totals);
 
   const suggestions: BudgetSuggestion[] = [];
   for (const s of stats) {
@@ -161,12 +155,12 @@ export function suggestBudgets(
           });
         }
       }
-    } else if (s.median >= 50 && medianTotal > 0 && s.median / medianTotal >= 0.08) {
+    } else {
       suggestions.push({
         ...base,
         kind: 'create',
         suggested,
-        facts: `Médiane de ${formatEUR(s.median)} par mois, soit ${Math.round((s.median / medianTotal) * 100)} % de tes dépenses hors épargne, sans budget.`,
+        facts: `Au moins ${formatEUR(SUGGESTION_MIN_MONTHLY)} chaque mois depuis ${window.length} mois (médiane ${formatEUR(s.median)}), sans budget.`,
       });
     }
   }
