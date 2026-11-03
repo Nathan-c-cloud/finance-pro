@@ -429,7 +429,7 @@ button.recalibrate {
 
 :host {
   /* Mêmes colonnes pour la ligne de titres et pour chaque transaction */
-  --tx-cols: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
+  --tx-cols: 72px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
 }
 
 .no-result {
@@ -487,37 +487,55 @@ button.recalibrate {
   font-size: 0.85rem;
 }
 
-.tx-row.income {
+.tx-type {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* Revenu et virement se repèrent par une pastille sur le type, pas par un fond de ligne :
+   les champs gardent le même aspect que sur les autres lignes. */
+.tx-row.income .tx-type,
+.tx-row.transfer .tx-type {
+  justify-self: start;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tx-row.income .tx-type {
   background: var(--color-income-soft);
-  border-radius: var(--radius-md);
+  border-color: var(--color-income-border);
+  color: var(--color-income);
 }
 
-.tx-row.transfer {
+.tx-row.transfer .tx-type {
   background: var(--color-primary-soft);
-  border-radius: var(--radius-md);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
 }
 
+/* Compte en face d'un virement : un champ en lecture seule, aligné comme les listes des autres lignes */
 .peer {
-  font-size: 0.85rem;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.25;
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.transfer-status {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-}
-
-.transfer-status.done {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.tx-type {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+/* Statut d'un virement : même pastille que « Reçu » / « À venir », sans action possible */
+.toggle .toggle-chip.static {
+  pointer-events: none;
 }
 
 /* ---------- État vide : aucune transaction ---------- */
@@ -732,6 +750,11 @@ button.recalibrate {
 
   .toggle .toggle-chip {
     padding: 0.5rem;
+  }
+
+  /* Le nom du compte en face peut passer sur deux lignes plutôt qu'être coupé */
+  .peer {
+    white-space: normal;
   }
 }
 

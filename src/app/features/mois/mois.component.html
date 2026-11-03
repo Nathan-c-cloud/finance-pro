@@ -553,7 +553,16 @@
             <div class="field toggle">
               <span class="field-label row-label">Statut</span>
               @if (t.transfer_id) {
-                <span class="transfer-status" [class.done]="transferDone(t)">{{ transferDone(t) ? 'Effectué' : 'À venir' }}</span>
+                <button
+                  type="button"
+                  class="toggle-chip static"
+                  [class.on]="transferDone(t)"
+                  tabindex="-1"
+                  aria-disabled="true"
+                  title="Un virement est effectué dès que sa date est passée"
+                >
+                  {{ transferDone(t) ? 'Effectué' : 'À venir' }}
+                </button>
               } @else if (t.type !== 'income') {
                 <button
                   class="toggle-chip"
