@@ -105,8 +105,8 @@ export interface SuggestionResult {
 export const SUGGESTION_WINDOW = 3;
 
 /**
- * Règles (sur les 3 derniers mois terminés). Une catégorie n'est regardée que si elle a coûté au moins 50 € CHAQUE mois :
- * en dessous, ce sont de petites sommes et un budget n'aurait pas de sens.
+ * Règles (sur les 3 derniers mois terminés). Une catégorie n'est regardée que si sa dépense médiane sur ces 3 mois est d'au moins 50 € :
+ * en dessous, ce sont de petites sommes et un budget n'aurait pas de sens. La médiane évite qu'un seul mois exceptionnel décide.
  * - budget dépassé au moins 2 mois sur 3 : proposer de le relever à la médiane ;
  * - dépense restée sous 80 % du budget les 3 mois : proposer de le baisser au mois le plus élevé (arrondi), qui couvre encore les 3 mois ;
  * - pas de budget : proposer la médiane comme budget.
@@ -128,7 +128,7 @@ export function suggestBudgets(
 
   const basedOn = window[window.length - 1].month_date.slice(0, 7);
   const stats = categoryStats(window, transactions, categories).filter(
-    (s) => !s.category.archived && s.amounts.every((a) => a >= SUGGESTION_MIN_MONTHLY)
+    (s) => !s.category.archived && s.median >= SUGGESTION_MIN_MONTHLY
   );
 
   const suggestions: BudgetSuggestion[] = [];
@@ -160,7 +160,7 @@ export function suggestBudgets(
         ...base,
         kind: 'create',
         suggested,
-        facts: `Au moins ${formatEUR(SUGGESTION_MIN_MONTHLY)} chaque mois depuis ${window.length} mois (médiane ${formatEUR(s.median)}), sans budget.`,
+        facts: `Médiane de ${formatEUR(s.median)} par mois sur ${window.length} mois, sans budget.`,
       });
     }
   }
