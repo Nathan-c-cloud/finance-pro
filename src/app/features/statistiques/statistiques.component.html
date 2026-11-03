@@ -1,0 +1,101 @@
+<section class="panel">
+  <div class="head">
+    <h3>Statistiques</h3>
+    <div class="periods" role="group" aria-label="Période">
+      @for (p of periods; track p) {
+        <button class="toggle-chip" [class.on]="period() === p" [attr.aria-pressed]="period() === p" (click)="period.set(p)">
+          {{ p }} mois
+        </button>
+      }
+    </div>
+  </div>
+  <p class="intro">
+    Les mois terminés seulement : le mois en cours n'est pas comparable. Les dépenses fixes comptent, sauf pour les catégories dont le
+    budget est « hors dépenses fixes ». L'épargne a sa propre carte.
+  </p>
+
+  @if (!data.budgetsAvailable()) {
+    <p class="notice">
+      Budgets indisponibles : le script <strong>supabase/budgets.sql</strong> n'a pas encore été exécuté dans Supabase.
+    </p>
+  } @else {
+    <app-budget-suggestions />
+    @if (!data.suggestionResult().enoughHistory) {
+      <p class="notice">
+        Pas encore de suggestions : il faut les 3 derniers mois terminés avec des transactions dans chacun
+        ({{ data.suggestionResult().withData }} sur 3 pour l'instant).
+      </p>
+    } @else if (data.budgetSuggestions().length === 0) {
+      <p class="ok">Aucune suggestion pour le moment : tes budgets collent à tes 3 derniers mois.</p>
+    }
+    <details class="rules">
+      <summary>Comment sont calculées les suggestions ?</summary>
+      <ul>
+        <li>Elles regardent la médiane (la valeur du milieu, moins sensible à un mois exceptionnel) des 3 derniers mois terminés.</li>
+        <li>Budget dépassé au moins 2 mois sur 3 : on propose de le relever à la médiane.</li>
+        <li>Toujours sous 80 % du budget 3 mois de suite : on propose de le baisser au mois le plus élevé, qui couvre encore les 3 mois.</li>
+        <li>Pas de budget et au moins 50 € par mois, soit au moins 8 % de tes dépenses hors épargne : on propose d'en fixer un.</li>
+        <li>Les montants sont arrondis aux 5 € supérieurs. Rien n'est appliqué sans ton accord.</li>
+      </ul>
+    </details>
+  }
+</section>
+
+<section class="panel table-panel">
+  <h3>Dépenses par catégorie</h3>
+  @if (window().length === 0) {
+    <p class="intro">Aucun mois terminé pour l'instant. Les statistiques apparaîtront dès la fin du premier mois.</p>
+  } @else if (rows().length === 0) {
+    <p class="intro">Aucune dépense dans ces mois.</p>
+  } @else {
+    <div class="scroll" tabindex="0" role="region" aria-label="Tableau des dépenses par catégorie et par mois">
+      <table>
+        <thead>
+          <tr>
+            <th class="name" scope="col">Catégorie</th>
+            @for (l of labels(); track $index) {
+              <th scope="col">{{ l }}</th>
+            }
+            <th scope="col" class="sep">Médiane</th>
+            <th scope="col">Moyenne</th>
+            <th scope="col">Budget</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.category.id) {
+            <tr>
+              <th class="name" scope="row">{{ r.category.name }}{{ r.category.archived ? ' (archivée)' : '' }}</th>
+              @for (a of r.amounts; track $index) {
+                <td [class.over]="isOver(a, r.budget)" [attr.title]="isOver(a, r.budget) ? 'Au dessus du budget actuel' : null">
+                  {{ a > 0 ? formatEUR(a) : '·' }}
+                </td>
+              }
+              <td class="sep">{{ formatEUR(r.median) }}</td>
+              <td>{{ formatEUR(r.average) }}</td>
+              <td>
+                @if (r.budget !== null) {
+                  {{ formatEUR(r.budget) }}
+                  @if (r.overCount > 0) {
+                    <small class="count">dépassé {{ r.overCount }}/{{ window().length }}</small>
+                  }
+                } @else {
+                  <span class="none">Aucun</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th class="name" scope="row">Total hors épargne</th>
+            @for (t of totals(); track $index) {
+              <td>{{ formatEUR(t) }}</td>
+            }
+            <td class="sep" colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="legend">En rouge : au dessus du budget par défaut actuel de la catégorie (le même budget est appliqué à tous les mois affichés).</p>
+  }
+</section>

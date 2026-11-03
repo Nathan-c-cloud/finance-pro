@@ -84,7 +84,7 @@ export function summarizeMonth(
   };
 }
 
-function normalize(s: string): string {
+export function normalize(s: string): string {
   const combiningMarks = new RegExp('[̀-ͯ]', 'g');
   return s.normalize('NFD').replace(combiningMarks, '').toLowerCase().trim();
 }

@@ -12,6 +12,7 @@ import { SearchBoxComponent } from '../../shared/search-box/search-box.component
 import { matchesSearch } from '../../core/services/search';
 import { SortBarComponent, SortDir } from '../../shared/sort-bar/sort-bar.component';
 import { BreakdownInput, buildBreakdown } from '../../core/services/breakdown';
+import { BudgetSuggestionsComponent } from '../../shared/budget-suggestions/budget-suggestions.component';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 
 interface NewTxForm {
@@ -57,7 +58,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 @Component({
   selector: 'app-mois',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent, SearchBoxComponent, DateFieldComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SortBarComponent, SearchBoxComponent, DateFieldComponent, BudgetSuggestionsComponent],
   templateUrl: './mois.component.html',
   styleUrl: './mois.component.scss',
 })

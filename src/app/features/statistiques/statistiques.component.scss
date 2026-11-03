@@ -1,0 +1,147 @@
+:host {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.panel {
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: 14px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.head h3,
+.table-panel h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.periods {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.intro {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.notice,
+.ok {
+  margin: 0 0 0.8rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.notice {
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+}
+
+.ok {
+  background: var(--color-income-soft);
+  color: var(--color-income);
+}
+
+.rules {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.rules summary {
+  cursor: pointer;
+  color: var(--color-primary);
+}
+
+.rules ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+  line-height: 1.4;
+}
+
+.table-panel h3 {
+  margin-bottom: 0.8rem;
+}
+
+/* Le tableau défile dans son cadre : la page ne déborde jamais, même avec 12 mois. */
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 0.5rem 0.65rem;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+thead th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+th.name {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  text-align: left;
+  font-weight: 600;
+}
+
+.sep {
+  border-left: 1px solid var(--color-border);
+}
+
+td.over {
+  color: var(--color-expense);
+  font-weight: 700;
+}
+
+.count {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--color-expense);
+}
+
+.none {
+  color: var(--color-text-secondary);
+}
+
+tfoot th,
+tfoot td {
+  border-bottom: 0;
+  border-top: 2px solid var(--color-border-strong);
+  font-weight: 700;
+}
+
+.legend {
+  margin: 0.7rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}

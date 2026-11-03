@@ -12,6 +12,7 @@ import {
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
+import { BudgetSuggestion, suggestBudgets } from './stats';
 import { addMonths, budgetSpent, budgetStatus, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
@@ -343,6 +344,54 @@ export class DataService {
     const total = Math.round(this.currentBudgetRows().reduce((a, r) => a + r.budget.amount, 0) * 100) / 100;
     return { income: s.income, savings: s.savings, total, left: Math.round((s.income - s.savings - total) * 100) / 100 };
   });
+
+  // ------------------------------------------------------------
+  // Suggestions de budget (règles dans stats.ts)
+  // ------------------------------------------------------------
+
+  /** « Garder mon budget » mémorisé par catégorie, valable jusqu'à ce qu'un nouveau mois soit terminé. Stocké dans le navigateur. */
+  readonly dismissedSuggestions = signal<Record<string, string>>(DataService.loadDismissed());
+
+  private static loadDismissed(): Record<string, string> {
+    try {
+      return JSON.parse(localStorage.getItem('budget-suggestions-dismissed') ?? '{}') ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  readonly suggestionResult = computed(() =>
+    suggestBudgets(this.sortedMonths(), this.transactions(), this.categories())
+  );
+
+  /** Suggestions à afficher : celles que tu n'as pas déjà écartées pour la période. */
+  readonly budgetSuggestions = computed(() =>
+    this.budgetsAvailable()
+      ? this.suggestionResult().suggestions.filter((s) => this.dismissedSuggestions()[s.categoryId] !== s.basedOn)
+      : []
+  );
+
+  dismissSuggestion(s: BudgetSuggestion) {
+    const next = { ...this.dismissedSuggestions(), [s.categoryId]: s.basedOn };
+    this.dismissedSuggestions.set(next);
+    try {
+      localStorage.setItem('budget-suggestions-dismissed', JSON.stringify(next));
+    } catch {
+      /* navigateur sans stockage : le choix vaut pour cette session seulement */
+    }
+  }
+
+  /**
+   * Applique une suggestion : le budget par défaut de la catégorie change, et aussi son budget du mois le plus récent
+   * (les mois passés ne bougent jamais).
+   */
+  async applySuggestion(s: BudgetSuggestion) {
+    const cat = this.categories().find((c) => c.id === s.categoryId);
+    const includeFixed = cat?.budget_include_fixed !== false;
+    await this.setCategoryBudget(s.categoryId, s.suggested, includeFixed);
+    const latest = this.sortedMonths()[this.sortedMonths().length - 1];
+    if (latest) await this.setMonthBudget(latest.id, s.categoryId, s.suggested, includeFixed);
+  }
 
   /** Catégories qui pourraient recevoir un budget ce mois-ci (ni Épargne, ni archivée, ni déjà budgétée). */
   budgetableCategories(monthId: string): Category[] {

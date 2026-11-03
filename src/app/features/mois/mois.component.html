@@ -214,6 +214,7 @@
               Budgets indisponibles : le script <strong>supabase/budgets.sql</strong> n'a pas encore été exécuté dans Supabase.
             </p>
           } @else {
+            <app-budget-suggestions />
             @if (data.budgetAllocation(); as a) {
               @if (data.currentBudgetRows().length > 0) {
                 <div class="alloc" [class.over]="a.left < 0">

@@ -256,7 +256,7 @@ $muted: var(--color-text-secondary);
 }
 
 /* ---------- Desktop : liens et avatar visibles, burger caché ---------- */
-@media (min-width: 900px) {
+@media (min-width: 1080px) {
   .links {
     display: flex;
   }
