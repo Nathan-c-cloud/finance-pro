@@ -292,3 +292,15 @@ select {
   color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
+
+/* Action à faire une seule fois (ou qui n'a plus rien à faire) : grisée, avec l'explication au survol (attribut title).
+   On évite [disabled] pour que l'infobulle s'affiche aussi sur Firefox. */
+button.is-done,
+button.is-done:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+  opacity: 0.7;
+  cursor: not-allowed;
+}

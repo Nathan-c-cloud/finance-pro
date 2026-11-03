@@ -1,7 +1,7 @@
 <section class="panel">
   <div class="head">
     <h3>Catégories</h3>
-    <span class="count">{{ data.categories().length }}</span>
+    <span class="count">{{ activeList().length }}</span>
 
     <div class="add">
       <input
@@ -17,9 +17,15 @@
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
+  @if (!data.budgetsAvailable()) {
+    <p class="notice">
+      Budgets et archivage indisponibles : le script <strong>supabase/budgets.sql</strong> n'a pas encore été exécuté dans
+      Supabase (SQL Editor, coller, Run).
+    </p>
+  }
 
   <div class="grid">
-    @for (c of data.categories(); track c.id) {
+    @for (c of activeList(); track c.id) {
       <div class="card">
         <span class="dot" [style.background]="dotBackground(c.name)" [style.color]="dotColor(c.name)">
           {{ initial(c.name) }}
@@ -37,6 +43,34 @@
             <span class="lock" title="Cette catégorie sert au calcul de l'épargne, elle ne peut être ni renommée ni supprimée.">
               🔒 Calcul de l'épargne
             </span>
+          } @else if (data.budgetsAvailable()) {
+            <label class="budget">
+              <span>Budget</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                inputmode="decimal"
+                placeholder="—"
+                [value]="c.budget_default ?? ''"
+                [attr.aria-label]="'Budget mensuel par défaut de ' + c.name"
+                (change)="saveBudget(c, $any($event.target).value)"
+              />
+              <span class="unit">€/mois</span>
+            </label>
+            @if (c.budget_default !== null && c.budget_default !== undefined) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="c.budget_include_fixed === false"
+                  (change)="toggleIncludeFixed(c, $any($event.target).checked)"
+                />
+                Hors dépenses fixes
+              </label>
+            }
+            <button class="link-btn arch" (click)="archive(c.id)" title="Ne plus utiliser cette catégorie en gardant son historique">
+              Archiver
+            </button>
           }
         </div>
 
@@ -46,4 +80,22 @@
       </div>
     }
   </div>
+
+  @if (archivedList().length > 0 && data.budgetsAvailable()) {
+    <div class="archived">
+      <button class="link-btn" (click)="showArchived.set(!showArchived())" [attr.aria-expanded]="showArchived()">
+        {{ showArchived() ? 'Masquer' : 'Afficher' }} les catégories archivées ({{ archivedList().length }})
+      </button>
+      @if (showArchived()) {
+        <ul>
+          @for (c of archivedList(); track c.id) {
+            <li>
+              <span>{{ c.name }} <small>{{ usageLabel(c.id) }}</small></span>
+              <button class="link-btn" (click)="restore(c.id)">Restaurer</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
 </section>

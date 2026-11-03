@@ -32,7 +32,7 @@
         <span class="field-label">Catégorie</span>
         <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
           <option [ngValue]="null">Sans catégorie</option>
-          @for (c of data.categories(); track c.id) {
+          @for (c of data.activeCategories(); track c.id) {
             <option [ngValue]="c.id">{{ c.name }}</option>
           }
         </select>
@@ -108,8 +108,8 @@
           <span class="field-label row-label">Catégorie</span>
           <select [ngModel]="f.category_id" (ngModelChange)="updateCategory(f.id, $event)">
             <option [ngValue]="null">Sans catégorie</option>
-            @for (c of data.categories(); track c.id) {
-              <option [ngValue]="c.id">{{ c.name }}</option>
+            @for (c of data.categoryOptions(f.category_id); track c.id) {
+              <option [ngValue]="c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
             }
           </select>
         </label>

@@ -159,6 +159,28 @@ export function isLateIncome(t: Transaction, today: Date = new Date()): boolean 
   return new Date(t.tx_date + 'T00:00:00') < startOfToday;
 }
 
+/** Seuils d'alerte d'un budget : en dessous de 80 % tout va bien, jusqu'à 100 % c'est serré, au dessus c'est dépassé. */
+export type BudgetStatus = 'ok' | 'warn' | 'over';
+
+/**
+ * Dépensé pour un budget : dépenses de la catégorie dans le mois (revenus exclus).
+ * Quand `includeFixed` est faux, les dépenses fixes de la catégorie ne comptent pas (ex. loyer dans Logement).
+ */
+export function budgetSpent(transactions: Transaction[], categoryId: string, includeFixed: boolean): number {
+  return Math.round(
+    sum(
+      transactions
+        .filter((t) => t.type !== 'income' && t.category_id === categoryId && (includeFixed || t.type !== 'fixed'))
+        .map((t) => t.amount)
+    ) * 100
+  ) / 100;
+}
+
+export function budgetStatus(spent: number, amount: number): BudgetStatus {
+  if (spent > amount + 0.005) return 'over';
+  return amount > 0 && spent / amount >= 0.8 ? 'warn' : 'ok';
+}
+
 export function addMonths(date: Date, n: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + n, 1);
 }

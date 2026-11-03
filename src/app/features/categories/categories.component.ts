@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
+import { Category } from '../../core/models/models';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 
 @Component({
@@ -29,6 +30,10 @@ export class CategoriesComponent {
   });
 
   private dialog = inject(DialogService);
+
+  activeList = computed(() => this.data.categories().filter((c) => !c.archived));
+  archivedList = computed(() => this.data.categories().filter((c) => c.archived));
+  showArchived = signal(false);
 
   constructor(public data: DataService) {}
 
@@ -100,11 +105,41 @@ export class CategoriesComponent {
     const ok = await this.dialog.confirm({
       title: 'Supprimer cette catégorie ?',
       message: inUse
-        ? 'Elle est utilisée par des dépenses fixes ou des transactions existantes. Elles resteront, mais deviendront "sans catégorie".'
+        ? 'Elle est utilisée par des dépenses fixes ou des transactions existantes. Elles resteront, mais deviendront "sans catégorie" dans tous les mois, y compris les mois passés : leur historique par catégorie sera perdu.\nSi tu veux seulement ne plus l\'utiliser, archive la catégorie : elle disparaît des listes mais garde son historique.'
         : 'Cette catégorie n\'est utilisée par aucune dépense.',
-      confirmLabel: 'Supprimer',
+      confirmLabel: inUse ? 'Supprimer quand même' : 'Supprimer',
+      cancelLabel: 'Annuler',
       danger: true,
     });
-    if (ok) await this.data.deleteCategory(id);
+    if (ok) await this.run(() => this.data.deleteCategory(id));
+  }
+
+  async archive(id: string) {
+    await this.run(() => this.data.setCategoryArchived(id, true));
+  }
+
+  async restore(id: string) {
+    await this.run(() => this.data.setCategoryArchived(id, false));
+  }
+
+  /** Budget par défaut : champ vide ou négatif = aucun budget. */
+  async saveBudget(c: Category, raw: string) {
+    const n = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
+    const amount = n === null || !Number.isFinite(n) || n < 0 ? null : Math.round(n * 100) / 100;
+    if (amount === (c.budget_default ?? null)) return;
+    await this.run(() => this.data.setCategoryBudget(c.id, amount, c.budget_include_fixed !== false));
+  }
+
+  async toggleIncludeFixed(c: Category, excludeFixed: boolean) {
+    await this.run(() => this.data.setCategoryBudget(c.id, c.budget_default ?? null, !excludeFixed));
+  }
+
+  private async run(action: () => Promise<void>) {
+    this.error.set(null);
+    try {
+      await action();
+    } catch (e: any) {
+      this.error.set(e?.message ?? 'Erreur lors de l\'enregistrement.');
+    }
   }
 }

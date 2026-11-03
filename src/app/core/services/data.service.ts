@@ -3,6 +3,7 @@ import { SupabaseService } from './supabase.service';
 import {
   Category,
   FixedExpense,
+  MonthBudget,
   MonthRow,
   MonthSummary,
   Transaction,
@@ -11,7 +12,7 @@ import {
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
-import { addMonths, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
+import { addMonths, budgetSpent, budgetStatus, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
   'Logement',
@@ -35,6 +36,20 @@ export class DataService {
   readonly months = signal<MonthRow[]>([]);
   readonly transactions = signal<Transaction[]>([]);
   readonly settings = signal<UserSettings | null>(null);
+  readonly monthBudgets = signal<MonthBudget[]>([]);
+  /** Faux tant que le script supabase/budgets.sql n'a pas été exécuté : les budgets sont alors masqués et non enregistrables. */
+  readonly budgetsAvailable = signal(true);
+
+  /** Catégories utilisables pour une nouvelle opération (les archivées n'y figurent plus). */
+  readonly activeCategories = computed(() => this.categories().filter((c) => !c.archived));
+
+  /**
+   * Catégories proposées dans une liste déroulante : les actives, plus la catégorie déjà choisie même si elle
+   * est archivée (sinon l'opération paraîtrait "sans catégorie" à l'écran).
+   */
+  categoryOptions(currentId: string | null | undefined): Category[] {
+    return this.categories().filter((c) => !c.archived || c.id === currentId);
+  }
 
   /** Mois triés du plus ancien au plus récent. */
   readonly sortedMonths = computed(() =>
@@ -154,6 +169,7 @@ export class DataService {
     this.months.set([]);
     this.transactions.set([]);
     this.settings.set(null);
+    this.monthBudgets.set([]);
     this.currentMonth.set(null);
     this.loading.set(false);
   }
@@ -165,12 +181,13 @@ export class DataService {
       const uid = this.supa.userId;
       if (!uid) return;
 
-      const [catsRes, fixedRes, monthsRes, txRes, settingsRes] = await Promise.all([
+      const [catsRes, fixedRes, monthsRes, txRes, settingsRes, budgetsRes] = await Promise.all([
         this.supa.client.from('categories').select('*').order('sort_order'),
         this.supa.client.from('fixed_expenses').select('*').order('created_at'),
         this.supa.client.from('months').select('*').order('month_date'),
         this.supa.client.from('transactions').select('*'),
         this.supa.client.from('user_settings').select('*').maybeSingle(),
+        this.supa.client.from('month_budgets').select('*'),
       ]);
 
       if (catsRes.error) throw catsRes.error;
@@ -185,6 +202,10 @@ export class DataService {
       this.categories.set(cats);
       this.fixedExpenses.set((fixedRes.data ?? []) as FixedExpense[]);
       this.transactions.set((txRes.data ?? []) as Transaction[]);
+      // Budgets : si la table n'existe pas encore (script SQL pas lancé), on continue sans eux au lieu de bloquer l'app.
+      this.budgetsAvailable.set(!budgetsRes.error);
+      this.monthBudgets.set(budgetsRes.error ? [] : ((budgetsRes.data ?? []) as MonthBudget[]));
+      if (budgetsRes.error) console.warn('Budgets indisponibles :', budgetsRes.error.message);
 
       let settings = settingsRes.data as UserSettings | null;
       if (!settings) {
@@ -259,6 +280,129 @@ export class DataService {
     const { error } = await this.supa.client.from('categories').delete().eq('id', id);
     if (error) throw error;
     this.categories.update((list) => list.filter((c) => c.id !== id));
+    // La base met "sans catégorie" sur les opérations concernées et supprime les budgets de la catégorie : on fait pareil ici,
+    // sinon l'écran garderait l'ancienne catégorie jusqu'au prochain rechargement.
+    this.transactions.update((list) => list.map((t) => (t.category_id === id ? { ...t, category_id: null } : t)));
+    this.fixedExpenses.update((list) => list.map((f) => (f.category_id === id ? { ...f, category_id: null } : f)));
+    this.monthBudgets.update((list) => list.filter((b) => b.category_id !== id));
+  }
+
+  /** Archive ou restaure une catégorie. Archivée, elle disparaît des listes de saisie mais reste dans l'historique. */
+  async setCategoryArchived(id: string, archived: boolean) {
+    const { error } = await this.supa.client.from('categories').update({ archived }).eq('id', id);
+    if (error) throw error;
+    this.categories.update((list) => list.map((c) => (c.id === id ? { ...c, archived } : c)));
+  }
+
+  /** Budget mensuel par défaut d'une catégorie (null = aucun) et choix de compter ou non ses dépenses fixes. */
+  async setCategoryBudget(id: string, amount: number | null, includeFixed: boolean) {
+    const patch = { budget_default: amount, budget_include_fixed: includeFixed };
+    const { error } = await this.supa.client.from('categories').update(patch).eq('id', id);
+    if (error) throw error;
+    this.categories.update((list) => list.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+
+  // ------------------------------------------------------------
+  // Budgets par mois
+  // ------------------------------------------------------------
+
+  /** La catégorie Épargne a sa propre carte : elle n'a pas de budget. */
+  private isSavingsCategory(c: Category): boolean {
+    return nameKey(c.name) === 'epargne';
+  }
+
+  /** Budgets du mois affiché, avec le dépensé et l'état de chacun. Seul `categoryName` dépend des catégories. */
+  readonly currentBudgetRows = computed(() => {
+    const cm = this.currentMonth();
+    if (!cm) return [];
+    const tx = this.currentMonthTransactions();
+    const cats = this.categories();
+    return this.monthBudgets()
+      .filter((b) => b.month_id === cm.id)
+      .map((b) => {
+        const cat = cats.find((c) => c.id === b.category_id);
+        const spent = budgetSpent(tx, b.category_id, b.include_fixed);
+        const remaining = Math.round((b.amount - spent) * 100) / 100;
+        return {
+          budget: b,
+          categoryName: cat?.name ?? 'Catégorie supprimée',
+          archived: !!cat?.archived,
+          spent,
+          remaining,
+          ratio: b.amount > 0 ? spent / b.amount : spent > 0 ? 1 : 0,
+          status: budgetStatus(spent, b.amount),
+        };
+      })
+      .sort((a, b) => a.categoryName.localeCompare(b.categoryName, 'fr'));
+  });
+
+  /** Reste à allouer : revenus du mois moins épargne moins budgets. Négatif = tu alloues plus que tes revenus. */
+  readonly budgetAllocation = computed(() => {
+    const s = this.currentSummary();
+    if (!s) return null;
+    const total = Math.round(this.currentBudgetRows().reduce((a, r) => a + r.budget.amount, 0) * 100) / 100;
+    return { income: s.income, savings: s.savings, total, left: Math.round((s.income - s.savings - total) * 100) / 100 };
+  });
+
+  /** Catégories qui pourraient recevoir un budget ce mois-ci (ni Épargne, ni archivée, ni déjà budgétée). */
+  budgetableCategories(monthId: string): Category[] {
+    const has = new Set(this.monthBudgets().filter((b) => b.month_id === monthId).map((b) => b.category_id));
+    return this.categories().filter((c) => !c.archived && !this.isSavingsCategory(c) && !has.has(c.id));
+  }
+
+  /** Catégories dont le budget par défaut n'a pas encore été copié dans le mois. */
+  private defaultBudgetsToCopy(monthId: string): Category[] {
+    return this.budgetableCategories(monthId).filter((c) => c.budget_default !== null && c.budget_default !== undefined);
+  }
+
+  /** Nombre de budgets par défaut qu'un clic sur "Appliquer mes budgets par défaut" ajouterait (0 = rien à faire). */
+  missingDefaultBudgets(monthId: string): number {
+    return this.defaultBudgetsToCopy(monthId).length;
+  }
+
+  /** Copie dans le mois les budgets par défaut des catégories qui n'en ont pas encore. Valeurs figées, jamais rétroactives. */
+  async applyDefaultBudgets(monthId: string): Promise<number> {
+    const uid = this.supa.userId!;
+    const toCopy = this.defaultBudgetsToCopy(monthId);
+    if (toCopy.length === 0) return 0;
+    const rows = toCopy.map((c) => ({
+      user_id: uid,
+      month_id: monthId,
+      category_id: c.id,
+      amount: c.budget_default as number,
+      include_fixed: c.budget_include_fixed !== false,
+    }));
+    const { data, error } = await this.supa.client.from('month_budgets').insert(rows).select();
+    if (error) throw error;
+    this.monthBudgets.update((list) => [...list, ...((data ?? []) as MonthBudget[])]);
+    return rows.length;
+  }
+
+  /** Crée ou modifie le budget d'une catégorie pour un mois ; un montant null le retire. */
+  async setMonthBudget(monthId: string, categoryId: string, amount: number | null, includeFixed: boolean) {
+    const existing = this.monthBudgets().find((b) => b.month_id === monthId && b.category_id === categoryId);
+    if (amount === null) {
+      if (!existing) return;
+      const { error } = await this.supa.client.from('month_budgets').delete().eq('id', existing.id);
+      if (error) throw error;
+      this.monthBudgets.update((list) => list.filter((b) => b.id !== existing.id));
+      return;
+    }
+    if (existing) {
+      const patch = { amount, include_fixed: includeFixed };
+      const { error } = await this.supa.client.from('month_budgets').update(patch).eq('id', existing.id);
+      if (error) throw error;
+      this.monthBudgets.update((list) => list.map((b) => (b.id === existing.id ? { ...b, ...patch } : b)));
+      return;
+    }
+    const uid = this.supa.userId!;
+    const { data, error } = await this.supa.client
+      .from('month_budgets')
+      .insert({ user_id: uid, month_id: monthId, category_id: categoryId, amount, include_fixed: includeFixed })
+      .select()
+      .single();
+    if (error) throw error;
+    this.monthBudgets.update((list) => [...list, data as MonthBudget]);
   }
 
   // ------------------------------------------------------------
@@ -452,6 +596,31 @@ export class DataService {
     const month = this.months().find((m) => m.id === monthId);
     if (!month) throw new Error('Mois introuvable.');
 
+    const { active, toAdd, alreadyThere } = this.planFixedExpenses(monthId);
+
+    if (toAdd.length > 0) {
+      const rows = toAdd.map((f) => ({
+        user_id: uid,
+        month_id: monthId,
+        type: 'fixed' as const,
+        name: f.name,
+        amount: monthlyShare(f.amount, f.frequency),
+        category_id: f.category_id,
+        tx_date: buildDate(month.month_date, f.payment_day),
+        detail: fixedExpenseDetail(f.amount, f.frequency),
+        necessary: null,
+        received: null,
+      }));
+      const { data: inserted, error } = await this.supa.client.from('transactions').insert(rows).select();
+      if (error) throw error;
+      this.transactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
+    }
+
+    return { added: toAdd.length, alreadyThere, active: active.length };
+  }
+
+  /** Ce que "Ajouter les dépenses fixes" ferait pour ce mois : actives du référentiel, à ajouter, déjà présentes. */
+  planFixedExpenses(monthId: string): { active: FixedExpense[]; toAdd: FixedExpense[]; alreadyThere: number } {
     const active = this.fixedExpenses().filter((f) => f.active);
 
     // Compteur des noms déjà présents (deux dépenses fixes de même nom restent possibles)
@@ -474,26 +643,7 @@ export class DataService {
         toAdd.push(f);
       }
     }
-
-    if (toAdd.length > 0) {
-      const rows = toAdd.map((f) => ({
-        user_id: uid,
-        month_id: monthId,
-        type: 'fixed' as const,
-        name: f.name,
-        amount: monthlyShare(f.amount, f.frequency),
-        category_id: f.category_id,
-        tx_date: buildDate(month.month_date, f.payment_day),
-        detail: fixedExpenseDetail(f.amount, f.frequency),
-        necessary: null,
-        received: null,
-      }));
-      const { data: inserted, error } = await this.supa.client.from('transactions').insert(rows).select();
-      if (error) throw error;
-      this.transactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
-    }
-
-    return { added: toAdd.length, alreadyThere, active: active.length };
+    return { active, toAdd, alreadyThere };
   }
 
   /**

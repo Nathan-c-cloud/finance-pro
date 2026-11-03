@@ -207,6 +207,113 @@
           }
         </section>
 
+        <section class="panel budgets">
+          <h3>Budgets du mois</h3>
+          @if (!data.budgetsAvailable()) {
+            <p class="b-hint">
+              Budgets indisponibles : le script <strong>supabase/budgets.sql</strong> n'a pas encore été exécuté dans Supabase.
+            </p>
+          } @else {
+            @if (data.budgetAllocation(); as a) {
+              @if (data.currentBudgetRows().length > 0) {
+                <div class="alloc" [class.over]="a.left < 0">
+                  <span class="alloc-label">Reste à allouer</span>
+                  <strong class="alloc-value">{{ formatEUR(a.left) }}</strong>
+                  <small>
+                    Revenus {{ formatEUR(a.income) }}, moins épargne {{ formatEUR(a.savings) }}, moins budgets {{ formatEUR(a.total) }}.
+                    @if (a.left < 0) {
+                      Tu alloues plus que tes revenus du mois.
+                    }
+                  </small>
+                </div>
+              }
+            }
+
+            @if (data.currentBudgetRows().length === 0) {
+              <p class="b-hint">
+                Aucun budget pour ce mois. Fixe un montant par catégorie dans l'onglet Catégories, puis applique-le ici, ou ajoute-en un
+                ci-dessous.
+              </p>
+            }
+
+            <ul class="b-list">
+              @for (r of data.currentBudgetRows(); track r.budget.id) {
+                <li class="b-row" [class.warn]="r.status === 'warn'" [class.over]="r.status === 'over'">
+                  <div class="b-top">
+                    <span class="b-name">{{ r.categoryName }}{{ r.archived ? ' (archivée)' : '' }}</span>
+                    <label class="b-amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputmode="decimal"
+                        [value]="r.budget.amount"
+                        [attr.aria-label]="'Budget de ' + r.categoryName + ' pour ce mois'"
+                        (change)="saveMonthBudget(r, $any($event.target).value)"
+                      />
+                      €
+                    </label>
+                    <button class="delete" title="Retirer ce budget" (click)="removeBudget(r)">✕</button>
+                  </div>
+                  <div
+                    class="b-bar"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    [attr.aria-valuenow]="barWidth(r.ratio)"
+                    [attr.aria-label]="'Budget ' + r.categoryName + ' consommé à ' + percent(r.ratio) + ' pour cent'"
+                  >
+                    <span [style.width.%]="barWidth(r.ratio)"></span>
+                  </div>
+                  <div class="b-text">
+                    <span>{{ formatEUR(r.spent) }} dépensés ({{ percent(r.ratio) }} %)</span>
+                    <strong>
+                      {{ r.remaining < 0 ? 'Dépassé de ' + formatEUR(-r.remaining) : 'Reste ' + formatEUR(r.remaining) }}
+                    </strong>
+                  </div>
+                  <label class="b-check">
+                    <input
+                      type="checkbox"
+                      [checked]="!r.budget.include_fixed"
+                      (change)="toggleBudgetFixed(r, $any($event.target).checked)"
+                    />
+                    Hors dépenses fixes
+                  </label>
+                </li>
+              }
+            </ul>
+
+            @if (data.budgetableCategories(s.month.id); as cats) {
+              @if (cats.length > 0 && data.currentBudgetRows().length > 0) {
+                <select class="b-add" aria-label="Ajouter un budget pour une catégorie" (change)="addBudget($any($event.target))">
+                  <option value="">Ajouter un budget…</option>
+                  @for (c of cats; track c.id) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                </select>
+              }
+            }
+
+            @if (budgetError()) {
+              <p class="error">{{ budgetError() }}</p>
+            }
+            @if (budgetInfo()) {
+              <p class="info">{{ budgetInfo() }}</p>
+            }
+
+            <button
+              class="recalibrate once"
+              [class.is-done]="applyBudgetsBtn().done"
+              [attr.aria-disabled]="applyBudgetsBtn().done"
+              [title]="applyBudgetsBtn().tip"
+              [disabled]="addingBudgets()"
+              (click)="applyBudgets()"
+            >
+              {{ addingBudgets() ? 'Application...' : 'Appliquer mes budgets par défaut' }}
+            </button>
+          }
+        </section>
+
         <section class="panel">
           <h3>Répartition par catégorie</h3>
           @let d = donutView(s.byCategory);
@@ -255,7 +362,14 @@
     <section class="main panel">
       <div class="main-head">
         <h3>Transactions du mois</h3>
-        <button class="with-icon" (click)="addFixedExpenses()" [disabled]="addingFixed()">
+        <button
+          class="with-icon"
+          [class.is-done]="fixedBtn().done"
+          [attr.aria-disabled]="fixedBtn().done"
+          [title]="fixedBtn().tip"
+          (click)="addFixedExpenses()"
+          [disabled]="addingFixed()"
+        >
           @if (!addingFixed()) {
             <app-icon name="plus" />
           }
@@ -298,7 +412,7 @@
             <span class="field-label">Catégorie</span>
             <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
               <option [ngValue]="null">Sans catégorie</option>
-              @for (c of data.categories(); track c.id) {
+              @for (c of data.activeCategories(); track c.id) {
                 <option [ngValue]="c.id">{{ c.name }}</option>
               }
             </select>
@@ -387,8 +501,8 @@
               <span class="field-label row-label">Catégorie</span>
               <select [ngModel]="t.category_id" (ngModelChange)="updateTxCategory(t.id, $event)">
                 <option [ngValue]="null">Sans catégorie</option>
-                @for (c of data.categories(); track c.id) {
-                  <option [ngValue]="c.id">{{ c.name }}</option>
+                @for (c of data.categoryOptions(t.category_id); track c.id) {
+                  <option [ngValue]="c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
                 }
               </select>
             </label>

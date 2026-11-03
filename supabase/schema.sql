@@ -109,6 +109,10 @@ create policy "transactions_owner" on transactions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============================================================
+-- Budgets par catégorie et archivage : voir supabase/budgets.sql (à exécuter ensuite).
+-- ============================================================
+
+-- ============================================================
 -- Catégories de départ (facultatif — l'app peut aussi les créer
 -- au premier lancement). Décommente et remplace <USER_ID> si tu
 -- veux les insérer à la main depuis le SQL Editor.

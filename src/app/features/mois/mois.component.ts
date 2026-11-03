@@ -118,6 +118,94 @@ export class MoisComponent {
 
   private dialog = inject(DialogService);
 
+  // ---------- Budgets du mois ----------
+  addingBudgets = signal(false);
+  budgetInfo = signal<string | null>(null);
+  budgetError = signal<string | null>(null);
+
+  /** Rien à faire = bouton grisé, avec l'explication au survol (voir aussi fixedBtn pour les dépenses fixes). */
+  applyBudgetsBtn(): { done: boolean; tip: string } {
+    const cm = this.data.currentMonth();
+    if (!cm) return { done: true, tip: '' };
+    const missing = this.data.missingDefaultBudgets(cm.id);
+    if (missing > 0) {
+      return { done: false, tip: `Ajoute ${missing} budget${missing > 1 ? 's' : ''} par défaut à ce mois (les montants sont copiés, tu pourras les modifier).` };
+    }
+    const anyDefault = this.data.categories().some(
+      (c) => !c.archived && c.budget_default !== null && c.budget_default !== undefined
+    );
+    return {
+      done: true,
+      tip: anyDefault
+        ? 'Les budgets par défaut sont déjà appliqués à ce mois : cette action ne se fait qu\'une fois. Si tu définis le budget d\'une autre catégorie, le bouton se réactive.'
+        : 'Aucun budget par défaut défini. Fixe un montant par catégorie dans l\'onglet Catégories, puis reviens ici.',
+    };
+  }
+
+  async applyBudgets() {
+    const cm = this.data.currentMonth();
+    if (!cm || this.applyBudgetsBtn().done) return;
+    this.addingBudgets.set(true);
+    this.budgetInfo.set(null);
+    this.budgetError.set(null);
+    try {
+      const n = await this.data.applyDefaultBudgets(cm.id);
+      this.budgetInfo.set(`${n} budget${n > 1 ? 's' : ''} appliqué${n > 1 ? 's' : ''} à ce mois.`);
+    } catch (e: any) {
+      this.budgetError.set(e?.message ?? "Erreur lors de l'application des budgets.");
+    } finally {
+      this.addingBudgets.set(false);
+    }
+  }
+
+  private async budgetAction(action: () => Promise<void>) {
+    this.budgetInfo.set(null);
+    this.budgetError.set(null);
+    try {
+      await action();
+    } catch (e: any) {
+      this.budgetError.set(e?.message ?? "Erreur lors de l'enregistrement du budget.");
+    }
+  }
+
+  /** Montant modifié à la main pour ce mois seulement (champ vide ou négatif : on garde l'ancien montant). */
+  async saveMonthBudget(row: { budget: { month_id: string; category_id: string; amount: number; include_fixed: boolean } }, raw: string) {
+    const n = Number(raw.replace(',', '.'));
+    if (raw.trim() === '' || !Number.isFinite(n) || n < 0) return;
+    const amount = Math.round(n * 100) / 100;
+    if (amount === row.budget.amount) return;
+    await this.budgetAction(() => this.data.setMonthBudget(row.budget.month_id, row.budget.category_id, amount, row.budget.include_fixed));
+  }
+
+  async toggleBudgetFixed(row: { budget: { month_id: string; category_id: string; amount: number } }, excludeFixed: boolean) {
+    await this.budgetAction(() => this.data.setMonthBudget(row.budget.month_id, row.budget.category_id, row.budget.amount, !excludeFixed));
+  }
+
+  async removeBudget(row: { budget: { month_id: string; category_id: string } }) {
+    await this.budgetAction(() => this.data.setMonthBudget(row.budget.month_id, row.budget.category_id, null, true));
+  }
+
+  async addBudget(select: HTMLSelectElement) {
+    const cm = this.data.currentMonth();
+    const id = select.value;
+    select.value = '';
+    if (!cm || !id) return;
+    const cat = this.data.categories().find((c) => c.id === id);
+    await this.budgetAction(() =>
+      this.data.setMonthBudget(cm.id, id, cat?.budget_default ?? 0, cat?.budget_include_fixed !== false)
+    );
+  }
+
+  /** Part du budget consommée en pourcentage, au delà de 100 % si dépassé. */
+  percent(ratio: number): number {
+    return Math.round(ratio * 100);
+  }
+
+  /** Part du budget consommée, bornée à 100 % pour la barre. */
+  barWidth(ratio: number): number {
+    return Math.min(100, Math.max(0, Math.round(ratio * 100)));
+  }
+
   constructor(public data: DataService) {
     // Changer de mois efface la recherche : on ne veut pas croire qu'un mois est vide parce qu'un filtre reste actif.
     effect(() => {
@@ -174,11 +262,21 @@ export class MoisComponent {
           }
         }
       }
+      // Les budgets par défaut des catégories sont copiés dans le nouveau mois (valeurs figées, modifiables ensuite).
+      let budgetNote = '';
+      if (created && this.data.budgetsAvailable()) {
+        try {
+          const n = await this.data.applyDefaultBudgets(month.id);
+          if (n > 0) budgetNote = ` ${n} budget${n > 1 ? 's' : ''} par défaut appliqué${n > 1 ? 's' : ''}.`;
+        } catch (e: any) {
+          budgetNote = ` Budgets non appliqués : ${e?.message ?? 'erreur'}. Le bouton du panneau Budgets permet de réessayer.`;
+        }
+      }
       this.fixedInfo.set(null);
       this.fixedError.set(null);
       this.info.set(
         created
-          ? 'Nouveau mois créé, vide. Le bouton « Ajouter les dépenses fixes » copie vos charges récurrentes.'
+          ? `Nouveau mois créé, vide. Le bouton « Ajouter les dépenses fixes » copie vos charges récurrentes.${budgetNote}`
           : 'Ce mois existait déjà, affichage basculé dessus.'
       );
     } catch (e: any) {
@@ -257,9 +355,33 @@ export class MoisComponent {
     });
   }
 
+  /**
+   * État du bouton « Ajouter les dépenses fixes » : grisé quand il n'y a plus rien à ajouter ni à mettre à jour.
+   * Calculé depuis les données (pas d'un « déjà cliqué » mémorisé) : il se réactive si une dépense fixe est ajoutée au référentiel.
+   */
+  fixedBtn(): { done: boolean; tip: string } {
+    const cm = this.data.currentMonth();
+    if (!cm) return { done: true, tip: '' };
+    const plan = this.data.planFixedExpenses(cm.id);
+    if (plan.active.length === 0) {
+      return { done: true, tip: 'Aucune dépense fixe active dans le référentiel. Ajoutes-en dans l\'onglet Dépenses fixes.' };
+    }
+    const dates = this.data.fixedDateChanges(cm.id).length;
+    if (plan.toAdd.length === 0 && dates === 0) {
+      return {
+        done: true,
+        tip: 'Toutes les dépenses fixes actives sont déjà dans ce mois : cette action ne se fait qu\'une fois. Si tu ajoutes une dépense fixe au référentiel, le bouton se réactive.',
+      };
+    }
+    const parts = [];
+    if (plan.toAdd.length > 0) parts.push(`${plan.toAdd.length} dépense${plan.toAdd.length > 1 ? 's' : ''} fixe${plan.toAdd.length > 1 ? 's' : ''} à ajouter`);
+    if (dates > 0) parts.push(`${dates} date${dates > 1 ? 's' : ''} à mettre à jour`);
+    return { done: false, tip: parts.join(', ') + '.' };
+  }
+
   async addFixedExpenses() {
     const cm = this.data.currentMonth();
-    if (!cm) return;
+    if (!cm || this.fixedBtn().done) return;
     this.addingFixed.set(true);
     this.fixedInfo.set(null);
     this.fixedError.set(null);

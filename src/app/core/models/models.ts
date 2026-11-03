@@ -3,6 +3,23 @@ export interface Category {
   user_id: string;
   name: string;
   sort_order: number;
+  /** Catégorie archivée : masquée quand on ajoute une opération, mais conservée dans l'historique. */
+  archived?: boolean;
+  /** Budget mensuel par défaut, copié dans chaque nouveau mois ; null ou absent = pas de budget. */
+  budget_default?: number | null;
+  /** Faux : le budget ne suit que les dépenses variables (les dépenses fixes de la catégorie ne comptent pas). */
+  budget_include_fixed?: boolean;
+  created_at?: string;
+}
+
+/** Budget d'une catégorie pour un mois précis (copie figée du budget par défaut, modifiable). */
+export interface MonthBudget {
+  id: string;
+  user_id: string;
+  month_id: string;
+  category_id: string;
+  amount: number;
+  include_fixed: boolean;
   created_at?: string;
 }
 

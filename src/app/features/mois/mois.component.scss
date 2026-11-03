@@ -711,3 +711,141 @@ button.recalibrate {
     padding: 0.5rem;
   }
 }
+
+/* ---------- Budgets du mois ---------- */
+.b-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.alloc {
+  display: grid;
+  gap: 0.1rem;
+  margin-bottom: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: var(--color-primary-soft);
+}
+
+.alloc.over {
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+}
+
+.alloc-label {
+  font-size: 0.75rem;
+}
+
+.alloc-value {
+  font-size: 1.15rem;
+}
+
+.alloc small {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.b-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.b-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.b-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.b-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.b-amount input {
+  width: 4.6rem;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.b-top .delete {
+  flex: none;
+}
+
+.b-bar {
+  height: 8px;
+  margin: 0.35rem 0 0.3rem;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.b-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-income);
+}
+
+.b-row.warn .b-bar span {
+  background: var(--color-savings);
+}
+
+.b-row.over .b-bar span {
+  background: var(--color-expense);
+}
+
+.b-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.b-row.over .b-text strong {
+  color: var(--color-expense);
+}
+
+.b-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.b-check input {
+  width: auto;
+  margin: 0;
+}
+
+.b-add {
+  width: 100%;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+
+button.once {
+  margin-top: 0.2rem;
+}
