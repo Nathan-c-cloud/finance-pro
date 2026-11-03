@@ -24,7 +24,7 @@ import {
 } from './account-scope';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
-import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
+import { compareIsoDatesNullLast, daysInMonth, shiftIsoDateToMonth } from './date-fr';
 import { BudgetSuggestion, suggestBudgets } from './stats';
 import { buildAccountSummaries } from './summaries';
 import { addMonths, budgetSpent, budgetStatus, formatMonthLabel, theoreticalBalanceToday, toMonthDateString } from './calc';
@@ -764,9 +764,10 @@ export class DataService {
   }
 
   /**
-   * Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas).
-   * Pour un virement, l'autre moitié suit dans le mois correspondant de son compte (créé si besoin) : les deux comptes
-   * continuent de compter le virement dans le même mois.
+   * Déplace plusieurs transactions vers un autre mois. Leur date suit : même jour dans le mois d'arrivée (05/11 devient 05/12),
+   * sauf si elle y est déjà ; une transaction sans date reste sans date. Montant et catégorie ne changent pas.
+   * Pour un virement, l'autre moitié suit dans le mois correspondant de son compte (créé si besoin) avec la même date :
+   * les deux comptes continuent de compter le virement dans le même mois.
    */
   async moveTransactions(ids: string[], monthId: string) {
     if (ids.length === 0) return;
@@ -774,22 +775,57 @@ export class DataService {
     if (!target) throw new Error('Mois introuvable.');
 
     // Tout est préparé (mois des comptes en face) AVANT de modifier quoi que ce soit.
-    const peers = peerMovesByAccount(ids, this.allTransactions(), this.allMonths());
+    const all = this.allTransactions();
+    const peers = peerMovesByAccount(ids, all, this.allMonths());
     const peerTargets = new Map<string, string>();
     for (const accountId of peers.keys()) {
       peerTargets.set(accountId, await this.ensureMonth(accountId, target.month_date));
     }
 
-    const { error } = await this.supa.client.from('transactions').update({ month_id: monthId }).in('id', ids);
-    if (error) throw error;
-    const moved = new Map<string, string>(ids.map((id) => [id, monthId]));
-    for (const [accountId, txIds] of peers) {
-      const peerMonthId = peerTargets.get(accountId)!;
-      const { error: peerError } = await this.supa.client.from('transactions').update({ month_id: peerMonthId }).in('id', txIds);
-      if (peerError) throw peerError;
-      for (const id of txIds) moved.set(id, peerMonthId);
+    // Chaque ligne déplacée : son mois d'arrivée et sa nouvelle date. L'autre moitié d'un virement prend la date de la première.
+    const plan = new Map<string, { monthId: string; date: string | null }>();
+    for (const id of ids) {
+      const tx = all.find((t) => t.id === id);
+      if (tx) plan.set(id, { monthId, date: shiftIsoDateToMonth(tx.tx_date, target.month_date) });
     }
-    this.allTransactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: moved.get(t.id)! } : t)));
+    for (const [accountId, txIds] of peers) {
+      for (const peerId of txIds) {
+        const peer = all.find((t) => t.id === peerId);
+        const source = all.find((t) => t.transfer_id === peer?.transfer_id && t.id !== peerId);
+        const date = shiftIsoDateToMonth(source?.tx_date, target.month_date);
+        plan.set(peerId, { monthId: peerTargets.get(accountId)!, date });
+      }
+    }
+
+    // Une requête par couple (mois, date) : les lignes qui vont au même endroit partent ensemble.
+    const groups = new Map<string, { monthId: string; date: string | null; ids: string[] }>();
+    for (const [id, step] of plan) {
+      const key = `${step.monthId}|${step.date ?? ''}`;
+      const group = groups.get(key) ?? { monthId: step.monthId, date: step.date, ids: [] };
+      group.ids.push(id);
+      groups.set(key, group);
+    }
+    for (const group of groups.values()) {
+      const patch: Partial<Transaction> = { month_id: group.monthId };
+      if (group.date) patch.tx_date = group.date;
+      const { error } = await this.supa.client.from('transactions').update(patch).in('id', group.ids);
+      if (error) throw error;
+    }
+
+    // Même règle que la base : l'entrée d'un virement est « reçue » dès que sa date est passée.
+    const today = new Date().toISOString().slice(0, 10);
+    this.allTransactions.update((list) =>
+      list.map((t) => {
+        const step = plan.get(t.id);
+        if (!step) return t;
+        const next = { ...t, month_id: step.monthId };
+        if (step.date) {
+          next.tx_date = step.date;
+          if (t.transfer_id && t.type === 'income') next.received = step.date <= today;
+        }
+        return next;
+      })
+    );
   }
 
   /**

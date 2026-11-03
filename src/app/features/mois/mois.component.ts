@@ -333,7 +333,7 @@ export class MoisComponent {
         {
           value: 'move',
           label: `Les reporter dans ${nextLabel}`,
-          hint: 'Elles quittent le mois précédent et reviennent dans le suivant, où tu pourras les dater ou les cocher.',
+          hint: 'Elles quittent le mois précédent et reviennent dans le suivant, au même jour du mois (05/11 devient 05/12). Un virement suit aussi sur l\'autre compte.',
         },
         {
           value: 'delete',

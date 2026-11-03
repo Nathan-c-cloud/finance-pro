@@ -30,3 +30,16 @@ export function compareIsoDatesNullLast(a: string | null | undefined, b: string 
   if (!b) return -1;
   return a.localeCompare(b);
 }
+
+/**
+ * Replace une date dans un mois : même jour dans `monthDate` ('aaaa-mm-01'), ramené au dernier jour si le mois est plus court
+ * (31/10 vers novembre donne 30/11). Une date déjà dans ce mois, ou plus tard, ne bouge pas ; pas de date, pas de changement.
+ */
+export function shiftIsoDateToMonth(iso: string | null | undefined, monthDate: string): string | null {
+  if (!iso) return null;
+  if (iso >= monthDate) return iso;
+  const year = Number(monthDate.slice(0, 4));
+  const month = Number(monthDate.slice(5, 7));
+  const day = Math.min(Number(iso.slice(8, 10)), daysInMonth(year, month));
+  return `${monthDate.slice(0, 8)}${String(day).padStart(2, '0')}`;
+}
