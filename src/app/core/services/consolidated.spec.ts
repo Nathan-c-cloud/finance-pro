@@ -127,4 +127,87 @@ describe('vue Tous les comptes', () => {
     expect(balanceAt(BNP, s, '2026-12-01')).toBe(1050);
     expect(balanceAt(BNP, s, '2026-08-01')).toBe(0);
   });
+
+  describe('contrôles de cohérence sur un jeu de données complet', () => {
+    // Trois comptes, trois mois, un peu de tout : revenus, dépenses, épargne à l'ancienne, virements dans tous les sens,
+    // intérêts et dépense directe sur l'épargne.
+    const CHK2 = acc('c2', 'Autre courant', 'checking', 200);
+    const accounts = [BNP, CHK2, TR];
+    const D = ['2026-09-01', '2026-10-01', '2026-11-01'];
+    const months = accounts.flatMap((a) => D.map((d, i) => month(`${a.id}-${i}`, a.id, d)));
+    const m = (a: Account, i: number) => `${a.id}-${i}`;
+
+    const mirror = (id: string, from: Account, to: Account, i: number, amount: number) => [
+      tx(m(from, i), { amount, transfer_id: id, transfer_account_id: to.id }),
+      tx(m(to, i), { type: 'income', amount, transfer_id: id, transfer_account_id: from.id, received: true }),
+    ];
+
+    const txs: Transaction[] = [
+      // septembre
+      tx(m(BNP, 0), { type: 'income', amount: 2500, received: true }),
+      tx(m(BNP, 0), { amount: 700 }),
+      tx(m(BNP, 0), { amount: 120, category_id: 'cat-e' }), // épargne à l'ancienne, hors comptes de l'app
+      ...mirror('t1', BNP, TR, 0, 150),
+      // octobre
+      tx(m(BNP, 1), { type: 'income', amount: 2500, received: true }),
+      tx(m(CHK2, 1), { type: 'income', amount: 400, received: true }),
+      tx(m(BNP, 1), { amount: 650 }),
+      tx(m(CHK2, 1), { amount: 90 }),
+      ...mirror('t2', BNP, TR, 1, 200),
+      ...mirror('t3', BNP, CHK2, 1, 300),
+      tx(m(TR, 1), { type: 'income', amount: 2.5, received: true }), // intérêts
+      // novembre : retrait de l'épargne, dépense directe sur l'épargne, virement entre l'autre courant et l'épargne
+      tx(m(BNP, 2), { type: 'income', amount: 2500, received: true }),
+      tx(m(BNP, 2), { amount: 800 }),
+      ...mirror('t4', TR, BNP, 2, 180),
+      tx(m(TR, 2), { amount: 13.56 }),
+      ...mirror('t5', CHK2, TR, 2, 50),
+    ];
+
+    const flows = new Map([[BNP.id, new Map([['2026-10-01', 2.5], ['2026-11-01', -13.56]])]]);
+    const c = consolidate(accounts, build(accounts, months, txs, flows), new Date(2026, 10, 15));
+    const nonTransfer = (monthIdx: number) => txs.filter((t) => !t.transfer_id && t.month_id.endsWith(`-${monthIdx}`));
+
+    it('les revenus ne sont jamais comptés deux fois : seuls les vrais revenus des comptes courants', () => {
+      D.forEach((d, i) => {
+        const real = nonTransfer(i)
+          .filter((t) => t.type === 'income' && !t.month_id.startsWith(TR.id))
+          .reduce((s, t) => s + t.amount, 0);
+        expect(c.months[i].income).toBeCloseTo(real, 2);
+      });
+    });
+
+    it('les dépenses hors épargne sont les vraies dépenses des comptes courants, sans virement ni épargne', () => {
+      D.forEach((d, i) => {
+        const real = nonTransfer(i)
+          .filter((t) => t.type !== 'income' && !t.month_id.startsWith(TR.id) && t.category_id !== 'cat-e')
+          .reduce((s, t) => s + t.amount, 0);
+        expect(c.months[i].expensesExcludingSavings).toBeCloseTo(real, 2);
+      });
+    });
+
+    it('l\'épargne du mois = virements vers l\'épargne moins retraits, plus épargne à l\'ancienne, plus mouvements directs de l\'épargne', () => {
+      expect(c.months[0].savings).toBeCloseTo(150 + 120, 2); // septembre
+      expect(c.months[1].savings).toBeCloseTo(200 + 2.5, 2); // octobre : virement + intérêts
+      expect(c.months[2].savings).toBeCloseTo(-180 - 13.56 + 50, 2); // novembre : retrait, dépense directe, virement de l'autre courant
+    });
+
+    it('le solde total ne varie que des vrais revenus et vraies dépenses, jamais d\'un virement', () => {
+      let previous = accounts.reduce((s, a) => s + a.opening_balance, 0);
+      D.forEach((d, i) => {
+        const delta = nonTransfer(i).reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+        expect(c.months[i].totalBalance - previous).toBeCloseTo(delta, 2);
+        previous = c.months[i].totalBalance;
+      });
+    });
+
+    it('chaque virement a ses deux moitiés dans le même mois', () => {
+      const monthOf = new Map(months.map((x) => [x.id, x.month_date]));
+      const byTransfer = new Map<string, string[]>();
+      for (const t of txs.filter((x) => x.transfer_id)) {
+        byTransfer.set(t.transfer_id!, [...(byTransfer.get(t.transfer_id!) ?? []), monthOf.get(t.month_id)!]);
+      }
+      for (const dates of byTransfer.values()) expect(new Set(dates).size).toBe(1);
+    });
+  });
 });

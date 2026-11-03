@@ -82,3 +82,50 @@ export function startMonthOptions(today: Date, count = 36): string[] {
   for (let i = 0; i < count; i++) out.push(toMonthDateString(addMonths(today, -i)));
   return out;
 }
+
+/**
+ * Déplacer des lignes vers un autre mois : pour chaque ligne de virement, l'autre moitié doit suivre, dans le mois
+ * correspondant de SON compte, sinon les deux comptes ne comptent plus le virement dans le même mois.
+ * Retourne, par compte en face, les identifiants des lignes à déplacer avec elles (sans doublon, sans les lignes déjà demandées).
+ */
+export function peerMovesByAccount(
+  ids: readonly string[],
+  transactions: readonly Transaction[],
+  months: readonly MonthRow[]
+): Map<string, string[]> {
+  const asked = new Set(ids);
+  const monthById = new Map(months.map((m) => [m.id, m]));
+  const result = new Map<string, string[]>();
+  for (const id of ids) {
+    const tx = transactions.find((t) => t.id === id);
+    if (!tx?.transfer_id) continue;
+    const peer = transactions.find((t) => t.transfer_id === tx.transfer_id && t.id !== tx.id);
+    if (!peer || asked.has(peer.id)) continue;
+    const accountId = monthById.get(peer.month_id)?.account_id;
+    if (!accountId) continue;
+    result.set(accountId, [...(result.get(accountId) ?? []), peer.id]);
+  }
+  return result;
+}
+
+/**
+ * Mois à créer pour qu'un compte ait le mois `target` ('YYYY-MM-01') : tous ceux qui manquent entre son premier mois et
+ * `target` (même règle que la base pour un virement). Liste vide si le mois existe déjà ; null si `target` est avant le
+ * premier mois du compte (il n'existait pas encore dans le suivi) ou si le compte n'a aucun mois.
+ */
+export function missingMonthDates(existing: readonly string[], target: string): string[] | null {
+  if (existing.length === 0) return null;
+  const sorted = [...existing].sort();
+  if (target < sorted[0]) return null;
+  const have = new Set(existing);
+  if (have.has(target)) return [];
+  const out: string[] = [];
+  let d = new Date(sorted[0] + 'T00:00:00');
+  for (let guard = 0; guard < 600; guard++) {
+    const key = toMonthDateString(d);
+    if (key > target) break;
+    if (!have.has(key)) out.push(key);
+    d = addMonths(d, 1);
+  }
+  return out;
+}

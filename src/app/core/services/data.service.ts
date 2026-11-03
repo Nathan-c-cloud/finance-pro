@@ -19,6 +19,8 @@ import {
   pickCurrentAccount,
   pickMonthToShow,
   transactionsOfMonths,
+  missingMonthDates,
+  peerMovesByAccount,
 } from './account-scope';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
@@ -761,13 +763,63 @@ export class DataService {
     });
   }
 
-  /** Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas). */
+  /**
+   * Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas).
+   * Pour un virement, l'autre moitié suit dans le mois correspondant de son compte (créé si besoin) : les deux comptes
+   * continuent de compter le virement dans le même mois.
+   */
   async moveTransactions(ids: string[], monthId: string) {
     if (ids.length === 0) return;
+    const target = this.allMonths().find((m) => m.id === monthId);
+    if (!target) throw new Error('Mois introuvable.');
+
+    // Tout est préparé (mois des comptes en face) AVANT de modifier quoi que ce soit.
+    const peers = peerMovesByAccount(ids, this.allTransactions(), this.allMonths());
+    const peerTargets = new Map<string, string>();
+    for (const accountId of peers.keys()) {
+      peerTargets.set(accountId, await this.ensureMonth(accountId, target.month_date));
+    }
+
     const { error } = await this.supa.client.from('transactions').update({ month_id: monthId }).in('id', ids);
     if (error) throw error;
-    const moved = new Set(ids);
-    this.allTransactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: monthId } : t)));
+    const moved = new Map<string, string>(ids.map((id) => [id, monthId]));
+    for (const [accountId, txIds] of peers) {
+      const peerMonthId = peerTargets.get(accountId)!;
+      const { error: peerError } = await this.supa.client.from('transactions').update({ month_id: peerMonthId }).in('id', txIds);
+      if (peerError) throw peerError;
+      for (const id of txIds) moved.set(id, peerMonthId);
+    }
+    this.allTransactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: moved.get(t.id)! } : t)));
+  }
+
+  /**
+   * Identifiant du mois `monthDate` d'un compte, en créant les mois manquants (vides) comme le fait la base pour un virement.
+   * Refuse si le compte n'existait pas encore à cette date.
+   */
+  private async ensureMonth(accountId: string, monthDate: string): Promise<string> {
+    const existing = this.allMonths().filter((m) => m.account_id === accountId);
+    const found = existing.find((m) => m.month_date === monthDate);
+    if (found) return found.id;
+
+    const missing = missingMonthDates(existing.map((m) => m.month_date), monthDate);
+    if (missing === null) {
+      const name = this.accounts().find((a) => a.id === accountId)?.name ?? 'autre compte';
+      const first = existing.map((m) => m.month_date).sort()[0];
+      throw new Error(
+        first
+          ? `Le compte « ${name} » démarre en ${first.slice(5, 7)}/${first.slice(0, 4)} : impossible d'y reporter ce virement.`
+          : `Le compte « ${name} » n'a encore aucun mois.`
+      );
+    }
+    const uid = this.supa.userId!;
+    const rows = missing.map((month_date) => ({ user_id: uid, account_id: accountId, month_date, status: 'closed' as const }));
+    const { data, error } = await this.supa.client.from('months').insert(rows).select();
+    if (error) throw error;
+    const created = (data ?? []) as MonthRow[];
+    this.allMonths.update((list) => [...list, ...created]);
+    const id = created.find((m) => m.month_date === monthDate)?.id;
+    if (!id) throw new Error('Le mois du compte en face n\'a pas pu être créé.');
+    return id;
   }
 
   // ------------------------------------------------------------

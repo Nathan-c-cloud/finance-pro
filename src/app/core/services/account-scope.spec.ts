@@ -5,6 +5,8 @@ import {
   budgetsOfMonths,
   fixedExpensesOfAccount,
   monthsOfAccount,
+  missingMonthDates,
+  peerMovesByAccount,
   pickCurrentAccount,
   pickMonthToShow,
   startMonthOptions,
@@ -150,6 +152,39 @@ describe('account-scope', () => {
 
     it('en propose 36 par défaut', () => {
       expect(startMonthOptions(new Date(2026, 10, 3)).length).toBe(36);
+    });
+  });
+
+  describe('déplacer un virement', () => {
+    const mBnp = month('mb', '1', '2026-11-01');
+    const mTr = month('mt', '2', '2026-11-01');
+    const out = { id: 'out', month_id: 'mb', transfer_id: 'x', transfer_account_id: '2' } as Transaction;
+    const inn = { id: 'in', month_id: 'mt', transfer_id: 'x', transfer_account_id: '1' } as Transaction;
+    const plain = { id: 'p', month_id: 'mb', transfer_id: null } as Transaction;
+
+    it('l\'autre moitié d\'un virement suit, groupée par compte en face', () => {
+      const moves = peerMovesByAccount(['out', 'p'], [out, inn, plain], [mBnp, mTr]);
+      expect([...moves.entries()]).toEqual([['2', ['in']]]);
+    });
+
+    it('une transaction ordinaire n\'entraîne rien', () => {
+      expect(peerMovesByAccount(['p'], [out, inn, plain], [mBnp, mTr]).size).toBe(0);
+    });
+
+    it('si les deux moitiés sont demandées, aucune n\'est déplacée deux fois', () => {
+      expect(peerMovesByAccount(['out', 'in'], [out, inn], [mBnp, mTr]).size).toBe(0);
+    });
+
+    it('mois à créer pour qu\'un compte ait un mois donné', () => {
+      expect(missingMonthDates(['2026-10-01'], '2026-10-01')).toEqual([]);
+      expect(missingMonthDates(['2026-10-01'], '2026-12-01')).toEqual(['2026-11-01', '2026-12-01']);
+      expect(missingMonthDates(['2026-10-01', '2026-12-01'], '2026-12-01')).toEqual([]);
+      expect(missingMonthDates(['2026-10-01', '2026-12-01'], '2027-01-01')).toEqual(['2026-11-01', '2027-01-01']);
+    });
+
+    it('avant le premier mois du compte, ou sans mois : impossible', () => {
+      expect(missingMonthDates(['2026-10-01'], '2026-09-01')).toBeNull();
+      expect(missingMonthDates([], '2026-09-01')).toBeNull();
     });
   });
 });
