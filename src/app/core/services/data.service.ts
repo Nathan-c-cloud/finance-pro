@@ -93,6 +93,8 @@ export class DataService {
     const months = this.sortedMonths();
     const cats = this.categories();
     const summaries: MonthSummary[] = [];
+    // Un virement avec un compte d'épargne compte comme de l'épargne (voir summarizeMonth).
+    const savingsIds = new Set(this.accounts().filter((a) => a.kind === 'savings').map((a) => a.id));
     // Le solde de départ appartient au compte (chaque compte repart de son propre solde).
     let carry = this.currentAccount()?.opening_balance ?? 0;
     months.forEach((m, i) => {
@@ -105,7 +107,7 @@ export class DataService {
       // (starting_balance_override), et c'est ce mois ci qui l'affiche comme "solde forcé de fin de mois".
       const nextOverride = months[i + 1]?.starting_balance_override;
       const forcedEnd = nextOverride !== null && nextOverride !== undefined ? nextOverride : null;
-      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd);
+      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd, savingsIds);
       summaries.push(s);
       carry = s.endingBalance;
     });
@@ -630,15 +632,38 @@ export class DataService {
   }
 
   async updateTransaction(id: string, patch: Partial<Transaction>) {
+    const current = this.allTransactions().find((t) => t.id === id);
+    const isTransferRow = !!current?.transfer_id;
+    if (isTransferRow && patch.tx_date === null) throw new Error('Un virement doit avoir une date.');
     const { error } = await this.supa.client.from('transactions').update(patch).eq('id', id);
     if (error) throw error;
-    this.allTransactions.update((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    // Le montant et la date d'un virement sont identiques des deux côtés : la base met l'autre ligne à jour,
+    // on fait pareil ici pour que l'écran reste exact sans recharger.
+    const mirrors = isTransferRow && ('amount' in patch || 'tx_date' in patch);
+    const today = new Date().toISOString().slice(0, 10);
+    this.allTransactions.update((list) =>
+      list.map((t) => {
+        if (t.id === id) return { ...t, ...patch };
+        if (mirrors && t.transfer_id === current!.transfer_id) {
+          const next = { ...t };
+          if ('amount' in patch) next.amount = patch.amount as number;
+          if ('tx_date' in patch) {
+            next.tx_date = patch.tx_date as string | null;
+            if (t.type === 'income') next.received = !!next.tx_date && next.tx_date <= today;
+          }
+          return next;
+        }
+        return t;
+      })
+    );
   }
 
   async deleteTransaction(id: string) {
     const { error } = await this.supa.client.from('transactions').delete().eq('id', id);
     if (error) throw error;
-    this.allTransactions.update((list) => list.filter((t) => t.id !== id));
+    // Supprimer un virement supprime aussi sa ligne de l'autre compte (fait par la base).
+    const transferId = this.allTransactions().find((t) => t.id === id)?.transfer_id;
+    this.allTransactions.update((list) => list.filter((t) => t.id !== id && !(transferId && t.transfer_id === transferId)));
   }
 
   /** Supprime plusieurs transactions en une requête. */
@@ -647,7 +672,51 @@ export class DataService {
     const { error } = await this.supa.client.from('transactions').delete().in('id', ids);
     if (error) throw error;
     const gone = new Set(ids);
-    this.allTransactions.update((list) => list.filter((t) => !gone.has(t.id)));
+    const transferIds = new Set(
+      this.allTransactions().filter((t) => gone.has(t.id) && t.transfer_id).map((t) => t.transfer_id as string)
+    );
+    this.allTransactions.update((list) => list.filter((t) => !gone.has(t.id) && !(t.transfer_id && transferIds.has(t.transfer_id))));
+  }
+
+  /**
+   * Crée un virement du compte affiché (depuis le mois `fromMonthId`) vers un autre compte : une seule opération
+   * côté base crée la sortie ici et l'entrée sur l'autre compte, et le mois de l'autre compte si besoin.
+   */
+  async createTransfer(input: {
+    fromMonthId: string;
+    toAccountId: string;
+    amount: number;
+    date: string;
+    name?: string;
+    detail?: string;
+  }): Promise<void> {
+    const { data: transferId, error } = await this.supa.client.rpc('create_transfer', {
+      p_from_month: input.fromMonthId,
+      p_to_account: input.toAccountId,
+      p_amount: input.amount,
+      p_date: input.date,
+      p_name: input.name?.trim() || null,
+      p_detail: input.detail?.trim() || null,
+    });
+    if (error) throw error;
+
+    // Recharge ce que la base vient de créer : les deux lignes et les mois de l'autre compte.
+    const [txRes, monthsRes] = await Promise.all([
+      this.supa.client.from('transactions').select('*').eq('transfer_id', transferId),
+      this.supa.client.from('months').select('*').eq('account_id', input.toAccountId),
+    ]);
+    if (txRes.error) throw txRes.error;
+    if (monthsRes.error) throw monthsRes.error;
+    const newTx = (txRes.data ?? []) as Transaction[];
+    const newMonths = (monthsRes.data ?? []) as MonthRow[];
+    this.allMonths.update((list) => {
+      const known = new Set(list.map((m) => m.id));
+      return [...list, ...newMonths.filter((m) => !known.has(m.id))];
+    });
+    this.allTransactions.update((list) => {
+      const known = new Set(list.map((t) => t.id));
+      return [...list, ...newTx.filter((t) => !known.has(t.id))];
+    });
   }
 
   /** Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas). */

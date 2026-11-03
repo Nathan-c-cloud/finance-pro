@@ -492,6 +492,29 @@ button.recalibrate {
   border-radius: var(--radius-md);
 }
 
+.tx-row.transfer {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+}
+
+.peer {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-status {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.transfer-status.done {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
 .tx-type {
   font-size: 0.75rem;
   color: var(--color-text-secondary);

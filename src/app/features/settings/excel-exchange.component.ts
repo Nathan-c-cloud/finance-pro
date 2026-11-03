@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DataService } from '../../core/services/data.service';
 import { UserSettings } from '../../core/models/models';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
+import { isTransfer } from '../../core/services/calc';
 import { buildWorkbookBlob } from '../../core/excel/excel-export';
 import { ImportPlan, Issue, PlanLine, buildImportPlan, parseWorkbook } from '../../core/excel/excel-import';
 
@@ -70,7 +71,7 @@ export class ExcelExchangeComponent {
         categories: this.data.categories(),
         fixedExpenses: this.data.fixedExpenses(),
         months: this.data.sortedMonths(),
-        transactions: this.data.transactions(),
+        transactions: this.data.transactions().filter((t) => !isTransfer(t)),
         initialBalance: this.data.currentAccount()?.opening_balance ?? 0,
         summaries: this.data.allSummaries(),
         exportedAt: new Date(),
@@ -117,7 +118,7 @@ export class ExcelExchangeComponent {
           categories: this.data.categories(),
           fixedExpenses: this.data.fixedExpenses(),
           months: this.data.sortedMonths(),
-          transactions: this.data.transactions(),
+          transactions: this.data.transactions().filter((t) => !isTransfer(t)),
           settings: this.accountSettings(),
         })
       );

@@ -61,6 +61,9 @@
             <div class="card-text">
               <span class="label">Évolution du compte <small>(solde fin moins solde début)</small></span>
               <span class="value" [class.positive]="s.accountChange > 0" [class.negative]="s.accountChange < 0">{{ formatEUR(s.accountChange) }}</span>
+              @if (s.transfersNet !== 0) {
+                <small class="rate-note">dont virements avec tes autres comptes : {{ formatEUR(s.transfersNet) }}</small>
+              }
             </div>
             <span class="card-icon"><app-icon name="trending-up" /></span>
           </div>
@@ -391,15 +394,20 @@
         <div class="add-tx-form">
           <label class="field f-type">
             <span class="field-label">Type</span>
-            <select [ngModel]="form().type" (ngModelChange)="updateFormField('type', $event)">
+            <select [ngModel]="transferMode() ? 'transfer' : form().type" (ngModelChange)="onFormTypeChange($event)">
               <option value="variable">Dépense variable</option>
               <option value="fixed">Dépense fixe (ponctuelle)</option>
               <option value="income">Revenu</option>
+              <option value="transfer">Virement vers un autre compte</option>
             </select>
           </label>
           <label class="field f-name">
             <span class="field-label">Nom</span>
-            <input placeholder="Nom" [ngModel]="form().name" (ngModelChange)="updateFormField('name', $event)" />
+            <input
+              [placeholder]="transferMode() ? 'Nom (facultatif)' : 'Nom'"
+              [ngModel]="form().name"
+              (ngModelChange)="updateFormField('name', $event)"
+            />
           </label>
           <label class="field f-amount">
             <span class="field-label">Montant (€)</span>
@@ -411,15 +419,28 @@
               (ngModelChange)="updateFormField('amount', $event)"
             />
           </label>
-          <label class="field f-cat">
-            <span class="field-label">Catégorie</span>
-            <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
-              <option [ngValue]="null">Sans catégorie</option>
-              @for (c of data.activeCategories(); track c.id) {
-                <option [ngValue]="c.id">{{ c.name }}</option>
-              }
-            </select>
-          </label>
+          @if (transferMode()) {
+            <label class="field f-cat">
+              <span class="field-label">Vers le compte</span>
+              <select [ngModel]="transferTo()" (ngModelChange)="transferTo.set($event)">
+                @for (a of otherAccounts(); track a.id) {
+                  <option [ngValue]="a.id">{{ a.name }}</option>
+                } @empty {
+                  <option [ngValue]="null" disabled>Crée d'abord un autre compte</option>
+                }
+              </select>
+            </label>
+          } @else {
+            <label class="field f-cat">
+              <span class="field-label">Catégorie</span>
+              <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
+                <option [ngValue]="null">Sans catégorie</option>
+                @for (c of data.activeCategories(); track c.id) {
+                  <option [ngValue]="c.id">{{ c.name }}</option>
+                }
+              </select>
+            </label>
+          }
           <label class="field f-date">
             <span class="field-label">Date</span>
             <app-date-field [value]="form().tx_date" (valueChange)="updateFormField('tx_date', $event)" />
@@ -432,8 +453,16 @@
               (ngModelChange)="updateFormField('detail', $event)"
             />
           </label>
-          <button class="primary" (click)="addTransaction()" [disabled]="saving()">Ajouter</button>
+          <button class="primary" (click)="addTransaction()" [disabled]="saving()">
+            {{ transferMode() ? 'Virer' : 'Ajouter' }}
+          </button>
         </div>
+        @if (transferMode()) {
+          <p class="hint">
+            Le virement est saisi une seule fois : il apparaît ici en sortie et sur l'autre compte en entrée, avec le même
+            montant et la même date. Modifier ou supprimer l'un modifie ou supprime l'autre. La date est obligatoire.
+          </p>
+        }
         @if (txError()) {
           <p class="error">{{ txError() }}</p>
         }
@@ -459,6 +488,7 @@
         Statut : « Nécessaire » ou « Optionnel » pour une dépense, « Reçu » ou « À venir » pour un revenu
         (« À confirmer » : sa date est passée, coche « Reçu » s'il est arrivé).
         Un revenu ne compte dans le solde théorique d'aujourd'hui que s'il est marqué « Reçu ».
+        Un virement entre comptes est « Effectué » dès que sa date est passée, des deux côtés.
       </p>
 
       @if (lateIncomes().length > 0) {
@@ -485,8 +515,8 @@
 
       <div class="tx-table">
         @for (t of visibleTransactions(); track t.id) {
-          <div class="tx-row" [class.income]="t.type === 'income'">
-            <span class="tx-type">{{ typeLabel(t.type) }}</span>
+          <div class="tx-row" [class.income]="t.type === 'income' && !t.transfer_id" [class.transfer]="!!t.transfer_id">
+            <span class="tx-type">{{ rowTypeLabel(t) }}</span>
             <label class="field tx-name">
               <span class="field-label row-label">Nom</span>
               <input [ngModel]="t.name" (change)="updateTxName(t.id, $any($event.target).value)" />
@@ -500,22 +530,31 @@
                 (change)="updateTxAmount(t.id, $any($event.target).value)"
               />
             </label>
-            <label class="field tx-cat">
-              <span class="field-label row-label">Catégorie</span>
-              <select [ngModel]="t.category_id" (ngModelChange)="updateTxCategory(t.id, $event)">
-                <option [ngValue]="null">Sans catégorie</option>
-                @for (c of data.categoryOptions(t.category_id); track c.id) {
-                  <option [ngValue]="c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
-                }
-              </select>
-            </label>
+            @if (t.transfer_id) {
+              <div class="field tx-cat">
+                <span class="field-label row-label">Compte</span>
+                <span class="peer">{{ t.type === 'income' ? 'Depuis' : 'Vers' }} {{ peerAccountName(t) }}</span>
+              </div>
+            } @else {
+              <label class="field tx-cat">
+                <span class="field-label row-label">Catégorie</span>
+                <select [ngModel]="t.category_id" (ngModelChange)="updateTxCategory(t.id, $event)">
+                  <option [ngValue]="null">Sans catégorie</option>
+                  @for (c of data.categoryOptions(t.category_id); track c.id) {
+                    <option [ngValue]="c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
+                  }
+                </select>
+              </label>
+            }
             <label class="field tx-date">
               <span class="field-label row-label">Date</span>
               <app-date-field [value]="t.tx_date" (valueChange)="updateTxDate(t.id, $event ?? '')" />
             </label>
             <div class="field toggle">
               <span class="field-label row-label">Statut</span>
-              @if (t.type !== 'income') {
+              @if (t.transfer_id) {
+                <span class="transfer-status" [class.done]="transferDone(t)">{{ transferDone(t) ? 'Effectué' : 'À venir' }}</span>
+              } @else if (t.type !== 'income') {
                 <button
                   class="toggle-chip"
                   [class.on]="t.necessary"

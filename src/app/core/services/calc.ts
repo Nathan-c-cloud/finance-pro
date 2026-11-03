@@ -18,23 +18,38 @@ export function sum(nums: number[]): number {
  */
 export function summarizeMonth(
   month: MonthRow,
-  transactions: Transaction[],
+  allTransactions: Transaction[],
   categories: Category[],
   startingBalance: number,
   /** Solde de fin forcé (le mois suivant a recalé le solde sur la banque), ou null pour le solde calculé. */
-  forcedEnd: number | null = null
+  forcedEnd: number | null = null,
+  /** Comptes de type épargne de l'utilisateur : un virement avec l'un d'eux compte comme de l'épargne. */
+  savingsAccountIds: ReadonlySet<string> = new Set()
 ): MonthSummary {
+  // Un virement entre comptes n'est ni un revenu ni une dépense : il est traité à part.
+  const transactions = allTransactions.filter((t) => !isTransfer(t));
+  const transfers = allTransactions.filter(isTransfer);
+
   const income = sum(transactions.filter((t) => t.type === 'income').map((t) => t.amount));
 
   const savingsCategoryIds = new Set(
     categories.filter((c) => normalize(c.name) === 'epargne').map((c) => c.id)
   );
 
-  const savings = sum(
-    transactions
-      .filter((t) => t.category_id && savingsCategoryIds.has(t.category_id))
-      .map((t) => t.amount)
-  );
+  // Virement vers un compte d'épargne : de l'épargne. Retrait depuis un compte d'épargne : de l'épargne en moins,
+  // seulement dans le mois où il a lieu (le taux des mois passés ne bouge pas).
+  const toSavings = (t: Transaction) => !!t.transfer_account_id && savingsAccountIds.has(t.transfer_account_id);
+  const signed = (t: Transaction) => (t.type === 'income' ? t.amount : -t.amount); // effet sur le solde
+
+  const transferSavings = sum(transfers.filter(toSavings).map((t) => -signed(t)));
+  const transfersNet = sum(transfers.filter((t) => !toSavings(t)).map(signed));
+
+  const savings =
+    sum(
+      transactions
+        .filter((t) => t.category_id && savingsCategoryIds.has(t.category_id))
+        .map((t) => t.amount)
+    ) + transferSavings;
 
   const expensesExcludingSavings = sum(
     transactions
@@ -42,12 +57,13 @@ export function summarizeMonth(
       .map((t) => t.amount)
   );
 
-  const computedEndingBalance = startingBalance + income - expensesExcludingSavings - savings;
+  const computedEndingBalance = startingBalance + income - expensesExcludingSavings - savings + transfersNet;
   const endingForced = forcedEnd !== null;
   const endingBalance = endingForced ? forcedEnd : computedEndingBalance;
   const accountChange = endingBalance - startingBalance;
   // Taux d'épargne = épargne / revenus du mois. Non défini (null, affiché "—") quand il n'a pas de sens :
   // aucun revenu saisi, ou épargne supérieure aux revenus (taux au dessus de 100 %).
+  // Négatif quand on a retiré de l'épargne dans le mois.
   const savingsRate = income > 0 && savings <= income ? savings / income : null;
 
   const byCategoryMap = new Map<string, { categoryId: string | null; categoryName: string; amount: number }>();
@@ -80,8 +96,21 @@ export function summarizeMonth(
     computedEndingBalance,
     endingForced,
     savingsRate,
+    transfersNet,
     byCategory: Array.from(byCategoryMap.values()),
   };
+}
+
+/** Une ligne de virement entre comptes (l'une des deux moitiés d'un virement). */
+export function isTransfer(t: Transaction): boolean {
+  return !!t.transfer_id;
+}
+
+/** Une opération a déjà eu lieu à `today` : un virement (des deux côtés), une dépense, par sa date ; un revenu, s'il est coché "Reçu". */
+function isDone(t: Transaction, today: Date): boolean {
+  if (t.type === 'income' && !isTransfer(t)) return t.received === true;
+  if (!t.tx_date) return false;
+  return new Date(t.tx_date + 'T00:00:00') <= today;
 }
 
 export function normalize(s: string): string {
@@ -99,17 +128,10 @@ export function theoreticalBalanceToday(
   transactions: Transaction[],
   today: Date = new Date()
 ): number {
-  const isPastOrToday = (t: Transaction) => {
-    if (!t.tx_date) return false; // pas de date = pas comptée aujourd'hui
-    return new Date(t.tx_date + 'T00:00:00') <= today;
-  };
-  const income = sum(transactions.filter((t) => t.type === 'income' && t.received === true).map((t) => t.amount));
-  const outflows = sum(
-    transactions
-      .filter((t) => t.type !== 'income' && isPastOrToday(t))
-      .map((t) => t.amount)
+  const effect = sum(
+    transactions.filter((t) => isDone(t, today)).map((t) => (t.type === 'income' ? t.amount : -t.amount))
   );
-  return startingBalance + income - outflows;
+  return startingBalance + effect;
 }
 
 /**
@@ -118,7 +140,7 @@ export function theoreticalBalanceToday(
  * et les dépenses datées plus tard ou sans date (pas comptées dans le théorique d'aujourd'hui, donc possiblement déjà prélevées).
  */
 export function gapClues(transactions: Transaction[], today: Date = new Date()) {
-  const unreceivedIncomes = transactions.filter((t) => t.type === 'income' && t.received !== true);
+  const unreceivedIncomes = transactions.filter((t) => t.type === 'income' && !isTransfer(t) && t.received !== true);
   const laterExpenses = transactions.filter(
     (t) => t.type !== 'income' && !!t.tx_date && new Date(t.tx_date + 'T00:00:00') > today
   );
@@ -140,11 +162,7 @@ export function gapClues(transactions: Transaction[], today: Date = new Date()) 
  * `net` est leur effet sur le solde de fin : revenus en plus, dépenses (épargne comprise) en moins.
  */
 export function pendingOperations(transactions: Transaction[], today: Date = new Date()) {
-  const items = transactions.filter((t) =>
-    t.type === 'income'
-      ? t.received !== true
-      : !t.tx_date || new Date(t.tx_date + 'T00:00:00') > today
-  );
+  const items = transactions.filter((t) => !isDone(t, today));
   const net = sum(items.map((t) => (t.type === 'income' ? t.amount : -t.amount)));
   return { items, net: Math.round(net * 100) / 100 };
 }
@@ -154,7 +172,7 @@ export function pendingOperations(transactions: Transaction[], today: Date = new
  * probablement à cocher, sinon il fausse le solde théorique d'aujourd'hui.
  */
 export function isLateIncome(t: Transaction, today: Date = new Date()): boolean {
-  if (t.type !== 'income' || t.received === true || !t.tx_date) return false;
+  if (t.type !== 'income' || isTransfer(t) || t.received === true || !t.tx_date) return false;
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return new Date(t.tx_date + 'T00:00:00') < startOfToday;
 }
@@ -170,7 +188,7 @@ export function budgetSpent(transactions: Transaction[], categoryId: string, inc
   return Math.round(
     sum(
       transactions
-        .filter((t) => t.type !== 'income' && t.category_id === categoryId && (includeFixed || t.type !== 'fixed'))
+        .filter((t) => t.type !== 'income' && !isTransfer(t) && t.category_id === categoryId && (includeFixed || t.type !== 'fixed'))
         .map((t) => t.amount)
     ) * 100
   ) / 100;

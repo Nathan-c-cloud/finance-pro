@@ -89,6 +89,10 @@ export interface Transaction {
   detail: string | null;
   necessary: boolean | null;
   received: boolean | null;
+  /** Identifiant commun aux deux lignes d'un virement entre comptes (sortie + entrée), null pour une transaction ordinaire. */
+  transfer_id?: string | null;
+  /** Pour un virement : le compte "en face" (celui qui reçoit si c'est une sortie, celui qui envoie si c'est une entrée). */
+  transfer_account_id?: string | null;
   created_at?: string;
 }
 
@@ -114,6 +118,11 @@ export interface MonthSummary {
   endingForced: boolean;
   /** Épargne / revenus (0..1), ou null quand il n'a pas de sens : pas de revenus, ou épargne supérieure aux revenus. */
   savingsRate: number | null;
+  /**
+   * Virements avec les autres comptes courants du mois : entrées moins sorties. Ils changent le solde mais ne sont
+   * ni des revenus ni des dépenses. (Les virements avec un compte d'épargne sont dans `savings`.)
+   */
+  transfersNet: number;
   /** Dépenses par catégorie, hors catégorie Épargne (comme "Dépenses (hors épargne)"). */
   byCategory: { categoryId: string | null; categoryName: string; amount: number }[];
 }
