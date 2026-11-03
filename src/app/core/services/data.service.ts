@@ -95,6 +95,10 @@ export class DataService {
     const summaries: MonthSummary[] = [];
     // Un virement avec un compte d'épargne compte comme de l'épargne (voir summarizeMonth).
     const savingsIds = new Set(this.accounts().filter((a) => a.kind === 'savings').map((a) => a.id));
+    // Les mouvements directs des comptes d'épargne (dépense, intérêts...) comptent dans l'épargne du mois, sur le
+    // compte courant de référence (le plus ancien compte courant actif) : un seul compte, pour ne jamais compter deux fois.
+    const flowsHere = this.currentAccountId() === this.savingsReferenceAccountId();
+    const savingsFlows = flowsHere ? this.savingsAccountsFlowByMonth() : new Map<string, number>();
     // Le solde de départ appartient au compte (chaque compte repart de son propre solde).
     let carry = this.currentAccount()?.opening_balance ?? 0;
     months.forEach((m, i) => {
@@ -107,11 +111,39 @@ export class DataService {
       // (starting_balance_override), et c'est ce mois ci qui l'affiche comme "solde forcé de fin de mois".
       const nextOverride = months[i + 1]?.starting_balance_override;
       const forcedEnd = nextOverride !== null && nextOverride !== undefined ? nextOverride : null;
-      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd, savingsIds);
+      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd, savingsIds, savingsFlows.get(m.month_date) ?? 0);
       summaries.push(s);
       carry = s.endingBalance;
     });
     return summaries;
+  });
+
+  /** Compte courant qui reçoit dans son épargne du mois les mouvements des comptes d'épargne : le plus ancien compte courant actif. */
+  readonly savingsReferenceAccountId = computed<string | null>(() => {
+    const checking = this.accounts()
+      .filter((a) => a.kind === 'checking' && a.status === 'active')
+      .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id));
+    return checking[0]?.id ?? null;
+  });
+
+  /**
+   * Par mois (clé 'YYYY-MM-01'), ce que les comptes d'épargne ont reçu moins ce qu'ils ont dépensé directement
+   * (intérêts, dépense...). Les virements sont exclus : ils sont déjà comptés par le compte courant qui les envoie ou les reçoit.
+   */
+  readonly savingsAccountsFlowByMonth = computed(() => {
+    const savingsAccountIds = new Set(this.accounts().filter((a) => a.kind === 'savings').map((a) => a.id));
+    const monthDateById = new Map(
+      this.allMonths()
+        .filter((m) => m.account_id && savingsAccountIds.has(m.account_id))
+        .map((m) => [m.id, m.month_date] as const)
+    );
+    const flows = new Map<string, number>();
+    for (const t of this.allTransactions()) {
+      const monthDate = monthDateById.get(t.month_id);
+      if (!monthDate || t.transfer_id) continue;
+      flows.set(monthDate, (flows.get(monthDate) ?? 0) + (t.type === 'income' ? t.amount : -t.amount));
+    }
+    return flows;
   });
 
   readonly currentSummary = computed<MonthSummary | null>(() => {

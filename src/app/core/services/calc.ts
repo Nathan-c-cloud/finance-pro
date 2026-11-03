@@ -24,7 +24,12 @@ export function summarizeMonth(
   /** Solde de fin forcé (le mois suivant a recalé le solde sur la banque), ou null pour le solde calculé. */
   forcedEnd: number | null = null,
   /** Comptes de type épargne de l'utilisateur : un virement avec l'un d'eux compte comme de l'épargne. */
-  savingsAccountIds: ReadonlySet<string> = new Set()
+  savingsAccountIds: ReadonlySet<string> = new Set(),
+  /**
+   * Mouvements directs des comptes d'épargne dans ce mois (revenus moins dépenses, virements exclus) : de l'argent
+   * qui entre ou sort de l'épargne sans passer par ce compte. Il compte dans l'épargne et le taux, pas dans le solde.
+   */
+  savingsAccountsFlow = 0
 ): MonthSummary {
   // Un virement entre comptes n'est ni un revenu ni une dépense : il est traité à part.
   const transactions = allTransactions.filter((t) => !isTransfer(t));
@@ -44,12 +49,14 @@ export function summarizeMonth(
   const transferSavings = sum(transfers.filter(toSavings).map((t) => -signed(t)));
   const transfersNet = sum(transfers.filter((t) => !toSavings(t)).map(signed));
 
-  const savings =
+  // Épargne qui passe par ce compte (catégorie Épargne, virements) : elle sort du solde ou y revient.
+  const savingsThroughAccount =
     sum(
       transactions
         .filter((t) => t.category_id && savingsCategoryIds.has(t.category_id))
         .map((t) => t.amount)
     ) + transferSavings;
+  const savings = savingsThroughAccount + savingsAccountsFlow;
 
   const expensesExcludingSavings = sum(
     transactions
@@ -57,7 +64,7 @@ export function summarizeMonth(
       .map((t) => t.amount)
   );
 
-  const computedEndingBalance = startingBalance + income - expensesExcludingSavings - savings + transfersNet;
+  const computedEndingBalance = startingBalance + income - expensesExcludingSavings - savingsThroughAccount + transfersNet;
   const endingForced = forcedEnd !== null;
   const endingBalance = endingForced ? forcedEnd : computedEndingBalance;
   const accountChange = endingBalance - startingBalance;
@@ -96,6 +103,7 @@ export function summarizeMonth(
     computedEndingBalance,
     endingForced,
     savingsRate,
+    savingsFromSavingsAccounts: savingsAccountsFlow,
     transfersNet,
     byCategory: Array.from(byCategoryMap.values()),
   };

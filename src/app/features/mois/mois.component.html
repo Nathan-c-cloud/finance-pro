@@ -54,6 +54,9 @@
             <div class="card-text">
               <span class="label">Épargne</span>
               <span class="value savings">{{ formatEUR(s.savings) }}</span>
+              @if (s.savingsFromSavingsAccounts !== 0) {
+                <small class="rate-note">dont mouvements sur tes comptes d'épargne : {{ formatEUR(s.savingsFromSavingsAccounts) }}</small>
+              }
             </div>
             <span class="card-icon savings"><app-icon name="piggy-bank" /></span>
           </div>

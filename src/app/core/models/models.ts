@@ -119,6 +119,11 @@ export interface MonthSummary {
   /** Épargne / revenus (0..1), ou null quand il n'a pas de sens : pas de revenus, ou épargne supérieure aux revenus. */
   savingsRate: number | null;
   /**
+   * Part de `savings` venant des mouvements directs des comptes d'épargne dans ce mois (dépenses en moins, revenus
+   * comme des intérêts en plus). Elle compte dans l'épargne et le taux, mais ne touche pas le solde de ce compte.
+   */
+  savingsFromSavingsAccounts: number;
+  /**
    * Virements avec les autres comptes courants du mois : entrées moins sorties. Ils changent le solde mais ne sont
    * ni des revenus ni des dépenses. (Les virements avec un compte d'épargne sont dans `savings`.)
    */

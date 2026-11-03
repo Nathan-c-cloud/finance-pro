@@ -117,6 +117,30 @@ describe('virements entre comptes dans les calculs', () => {
     expect(s.transfersNet).toBe(0);
   });
 
+  describe('mouvements directs des comptes d\'épargne', () => {
+    it('une dépense sur un compte d\'épargne baisse l\'épargne et le taux du mois, pas le solde', () => {
+      // 100 virés vers l'épargne (5 %), puis 13,56 dépensés directement depuis l'épargne
+      const s = summarizeMonth(month, [salary, toTr(100)], categories, 0, null, savingsIds, -13.56);
+      expect(s.savings).toBeCloseTo(86.44);
+      expect(s.savingsRate).toBeCloseTo(0.0432, 3);
+      expect(s.savingsFromSavingsAccounts).toBeCloseTo(-13.56);
+      expect(s.endingBalance).toBe(1900); // le solde du compte courant ne bouge pas
+    });
+
+    it('des intérêts reçus sur l\'épargne augmentent l\'épargne sans toucher aux revenus du compte courant', () => {
+      const s = summarizeMonth(month, [salary, toTr(100)], categories, 0, null, savingsIds, 4);
+      expect(s.income).toBe(2000);
+      expect(s.savings).toBe(104);
+      expect(s.endingBalance).toBe(1900);
+    });
+
+    it('sans mouvement sur l\'épargne, rien ne change', () => {
+      const s = summarizeMonth(month, [salary, toTr(100)], categories, 0, null, savingsIds);
+      expect(s.savings).toBe(100);
+      expect(s.savingsFromSavingsAccounts).toBe(0);
+    });
+  });
+
   describe('solde théorique et opérations en attente', () => {
     const today = new Date(2026, 10, 10);
 
