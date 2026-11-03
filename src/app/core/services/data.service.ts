@@ -22,6 +22,7 @@ import {
   missingMonthDates,
   peerMovesByAccount,
 } from './account-scope';
+import { closureBlocker, closureFixedExpenses, localIsoDate, remainingBalance } from './account-closure';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { compareIsoDatesNullLast, daysInMonth, shiftIsoDateToMonth } from './date-fr';
@@ -419,6 +420,68 @@ export class DataService {
     const { error } = await this.supa.client.from('accounts').update(clean).eq('id', id);
     if (error) throw error.code === '23505' ? new Error('Un compte porte déjà ce nom.') : error;
     this.accounts.update((list) => list.map((a) => (a.id === id ? { ...a, ...clean } : a)));
+  }
+
+  /**
+   * Clôture un compte : il sort du total, n'accepte plus d'opérations et ses dépenses fixes (et celles qui virent vers lui)
+   * sont arrêtées. L'historique reste. Si `transferToId` est donné, `amount` est viré vers ce compte aujourd'hui avant la
+   * clôture ; sinon l'argent restant sort simplement du suivi. Refusé s'il reste des opérations à venir ou si c'est le
+   * dernier compte actif.
+   */
+  async closeAccount(id: string, opts: { transferToId?: string | null; amount?: number } = {}) {
+    const account = this.accounts().find((a) => a.id === id);
+    if (!account) throw new Error('Compte introuvable.');
+    const today = new Date();
+    const blocker = closureBlocker({
+      account,
+      accounts: this.accounts(),
+      months: this.allMonths(),
+      transactions: this.allTransactions(),
+      today,
+    });
+    if (blocker) throw new Error(blocker);
+
+    if (opts.transferToId) {
+      const target = this.accounts().find((a) => a.id === opts.transferToId);
+      if (!target || target.status !== 'active' || target.id === id) throw new Error('Choisis un autre compte actif.');
+      const amount = Math.round((opts.amount ?? 0) * 100) / 100;
+      if (!(amount > 0)) throw new Error('Le montant à virer doit être positif.');
+      const monthId = await this.ensureMonth(id, toMonthDateString(today));
+      await this.createTransfer({
+        fromMonthId: monthId,
+        toAccountId: target.id,
+        amount,
+        date: localIsoDate(today),
+        name: `Clôture de ${account.name}`,
+      });
+    }
+
+    const closedAt = localIsoDate(today);
+    const { error } = await this.supa.client.from('accounts').update({ status: 'closed', closed_at: closedAt }).eq('id', id);
+    if (error) throw error;
+    this.accounts.update((list) => list.map((a) => (a.id === id ? { ...a, status: 'closed' as const, closed_at: closedAt } : a)));
+
+    // Dépenses fixes qui n'ont plus lieu d'être : les arrêter évite des virements refusés à chaque nouveau mois.
+    const stopped = closureFixedExpenses(id, this.allFixedExpenses()).map((f) => f.id);
+    if (stopped.length > 0) {
+      const { error: fixedError } = await this.supa.client.from('fixed_expenses').update({ active: false }).in('id', stopped);
+      if (fixedError) throw fixedError;
+      const gone = new Set(stopped);
+      this.allFixedExpenses.update((list) => list.map((f) => (gone.has(f.id) ? { ...f, active: false } : f)));
+    }
+
+    // Le compte affiché vient de se clôturer : on passe sur un compte actif.
+    if (this.currentAccountId() === id) {
+      const next = pickCurrentAccount(this.accounts(), null);
+      if (next && next.id !== id) await this.selectAccount(next.id);
+    }
+  }
+
+  /** Rouvre un compte clôturé. Ses dépenses fixes arrêtées à la clôture restent à réactiver à la main. */
+  async reopenAccount(id: string) {
+    const { error } = await this.supa.client.from('accounts').update({ status: 'active', closed_at: null }).eq('id', id);
+    if (error) throw error;
+    this.accounts.update((list) => list.map((a) => (a.id === id ? { ...a, status: 'active' as const, closed_at: null } : a)));
   }
 
   /** Affiche un autre compte : ses mois, ses dépenses fixes et son solde remplacent ceux du compte précédent. */

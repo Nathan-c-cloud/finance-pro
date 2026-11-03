@@ -142,3 +142,16 @@
     max-width: none;
   }
 }
+
+.group-title {
+  padding: 0.3rem 0.7rem 0.1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.option.closed .o-name {
+  color: var(--color-text-secondary);
+}

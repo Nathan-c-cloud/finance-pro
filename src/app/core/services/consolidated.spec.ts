@@ -101,6 +101,32 @@ describe('vue Tous les comptes', () => {
     expect(c.months.find((m) => m.monthDate === '2026-10-01')!.income).toBe(500);
   });
 
+  it('clôture avec virement : le total est continu, avant, pendant et après le mois de clôture', () => {
+    // TR (500) reçoit 300 de OLD en novembre : OLD (800 en octobre) est clôturé en novembre avec ses 800 viré à TR
+    const OLD = acc('old', 'Ancien', 'checking', 800, { status: 'closed', closed_at: '2026-11-03' });
+    const months = [
+      month('o1', OLD.id, '2026-10-01'), month('o2', OLD.id, '2026-11-01'),
+      month('t1', TR.id, '2026-10-01'), month('t2', TR.id, '2026-11-01'),
+    ];
+    const txs = [
+      tx('o2', { amount: 800, transfer_id: 'c1', transfer_account_id: TR.id }),
+      tx('t2', { type: 'income', amount: 800, received: true, transfer_id: 'c1', transfer_account_id: OLD.id }),
+    ];
+    const c = consolidate([OLD, TR], build([OLD, TR], months, txs), today);
+    expect(c.months.map((m) => m.totalBalance)).toEqual([1300, 1300]); // octobre : 800 + 500, novembre : 1300 chez TR
+    expect(c.totalBalance).toBe(1300);
+  });
+
+  it('clôture sans virement : le total baisse dans le mois de la clôture, pas avant', () => {
+    const OLD = acc('old', 'Ancien', 'checking', 200, { status: 'closed', closed_at: '2026-11-03' });
+    const months = [
+      month('o1', OLD.id, '2026-10-01'), month('o2', OLD.id, '2026-11-01'),
+      month('b1', BNP.id, '2026-10-01'), month('b2', BNP.id, '2026-11-01'),
+    ];
+    const c = consolidate([OLD, BNP], build([OLD, BNP], months, []), today);
+    expect(c.months.map((m) => m.totalBalance)).toEqual([1200, 1000]);
+  });
+
   it('un compte qui démarre plus tard compte 0 avant son premier mois, puis son solde de départ', () => {
     const months = [month('mb1', BNP.id, '2026-10-01'), month('mb2', BNP.id, '2026-11-01'), month('mt', TR.id, '2026-11-01')];
     const c = consolidate([BNP, TR], build([BNP, TR], months, []), today);

@@ -28,6 +28,8 @@ export class AccountSwitcherComponent {
   private router = inject(Router);
 
   accounts = this.data.accounts;
+  activeAccounts = computed(() => this.data.accounts().filter((a) => a.status === 'active'));
+  closedAccounts = computed(() => this.data.accounts().filter((a) => a.status === 'closed'));
   current = this.data.currentAccount;
   isSavings = computed(() => this.current()?.kind === 'savings');
 

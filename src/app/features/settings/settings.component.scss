@@ -57,3 +57,44 @@
   font-size: 0.68rem;
   font-weight: 600;
 }
+
+.a-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.accounts li.closed {
+  background: transparent;
+  border-style: dashed;
+}
+
+.accounts li.closed .a-main strong {
+  color: var(--color-text-secondary);
+}
+
+.closed-title {
+  margin: 1.2rem 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.error {
+  margin: 0.7rem 0 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-expense-soft);
+  color: var(--color-expense);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .accounts li {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .a-actions button {
+    flex: 1;
+  }
+}

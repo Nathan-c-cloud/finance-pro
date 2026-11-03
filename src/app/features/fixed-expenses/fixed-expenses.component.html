@@ -16,6 +16,9 @@
     Le jour de prélèvement est alors obligatoire. Ça compte comme de l'épargne si le compte de destination est un compte d'épargne.
   </p>
 
+  @if (data.currentAccount()?.status === 'closed') {
+    <p class="hint">Ce compte est clôturé : ses dépenses fixes sont arrêtées et on n'en ajoute plus. Rouvre-le dans Réglages pour le réutiliser.</p>
+  } @else {
   <div class="add-fe">
     <h4>Ajouter une dépense fixe</h4>
     <div class="add-fe-form">
@@ -79,6 +82,7 @@
       <p class="error">{{ error() }}</p>
     }
   </div>
+  }
 
   <app-search-box [(value)]="query" placeholder="Rechercher une dépense fixe par nom" [info]="searchInfo()" />
 

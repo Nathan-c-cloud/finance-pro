@@ -12,12 +12,14 @@
           <app-icon name="calendar" />
         </button>
 
+@if (closedOn() === null) {
         <button class="primary with-icon" (click)="createNextMonth()" [disabled]="generating()">
           @if (!generating()) {
             <app-icon name="plus" />
           }
           {{ generating() ? 'Création...' : 'Nouveau mois' }}
         </button>
+        }
       </div>
 
       @if (info()) {
@@ -371,7 +373,8 @@
     <section class="main panel">
       <div class="main-head">
         <h3>Transactions du mois</h3>
-        <button
+@if (closedOn() === null) {
+                <button
           class="with-icon"
           [class.is-done]="fixedBtn().done"
           [attr.aria-disabled]="fixedBtn().done"
@@ -384,7 +387,14 @@
           }
           {{ addingFixed() ? 'Ajout...' : 'Ajouter les dépenses fixes' }}
         </button>
+        }
       </div>
+      @if (closedOn() !== null) {
+        <p class="info">
+          Compte clôturé{{ closedOn() ? ' le ' + formatDateFr(closedOn()) : '' }} : tu peux consulter et corriger son historique,
+          mais plus y ajouter d'opération. Pour le réutiliser, rouvre-le dans Réglages.
+        </p>
+      }
       @if (fixedInfo()) {
         <p class="info">{{ fixedInfo() }}</p>
       }
@@ -392,6 +402,7 @@
         <p class="error">{{ fixedError() }}</p>
       }
 
+      @if (closedOn() === null) {
       <div class="add-tx">
         <h4>Ajouter une transaction</h4>
         <div class="add-tx-form">
@@ -470,6 +481,7 @@
           <p class="error">{{ txError() }}</p>
         }
       </div>
+      }
 
       <app-search-box id="tx-search" style="scroll-margin-top: 5.5rem" [(value)]="query" placeholder="Rechercher une transaction par nom" [info]="searchInfo()" />
       @if (undatedOnly()) {

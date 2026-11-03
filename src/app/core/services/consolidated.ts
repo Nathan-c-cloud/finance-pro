@@ -9,7 +9,9 @@ import { addMonths, toMonthDateString } from './calc';
  *    (la somme des soldes ne bouge pas) ;
  *  - revenus, dépenses et épargne du mois sont ceux des comptes COURANTS : l'épargne est déjà comptée par eux
  *    (virements vers l'épargne, retraits, mouvements directs des comptes d'épargne) ;
- *  - les soldes ne comptent que les comptes actifs : un compte clôturé sort du total.
+ *  - le solde d'aujourd'hui ne compte que les comptes actifs : un compte clôturé sort du total ;
+ *  - l'historique du total ne change pas : un compte clôturé compte jusqu'au mois précédant sa clôture. Son argent a été
+ *    viré ailleurs (le total est alors continu) ou est sorti du suivi (le total baisse dans le mois de la clôture).
  */
 
 export interface AccountBalance {
@@ -59,6 +61,12 @@ export function balanceAt(account: Account, summaries: MonthSummary[], monthDate
   return found ? found.endingBalance : 0;
 }
 
+/** Un compte actif compte dans le total de chaque mois ; un compte clôturé, seulement avant le mois de sa clôture. */
+function countsInTotal(account: Account, monthDate: string): boolean {
+  if (account.status === 'active') return true;
+  return !!account.closed_at && monthDate < `${account.closed_at.slice(0, 7)}-01`;
+}
+
 export function consolidate(
   accounts: Account[],
   summariesByAccount: ReadonlyMap<string, MonthSummary[]>,
@@ -96,7 +104,9 @@ export function consolidate(
       expenses += s.expensesExcludingSavings;
       savings += s.savings;
     }
-    const totalBalance = active.reduce((sum, a) => sum + balanceAt(a, summariesOf(a), monthDate), 0);
+    const totalBalance = accounts
+      .filter((a) => countsInTotal(a, monthDate))
+      .reduce((sum, a) => sum + balanceAt(a, summariesOf(a), monthDate), 0);
     return {
       monthDate,
       income: round2(income),

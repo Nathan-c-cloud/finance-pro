@@ -72,6 +72,13 @@ export class MoisComponent {
   transferTo = signal<string | null>(null);
   isTransfer = isTransfer;
   /** Comptes vers lesquels on peut virer : les autres comptes actifs. */
+  /** Date de clôture du compte affiché, ou null s'il est actif : un compte clôturé se consulte, on n'y ajoute plus rien. */
+  closedOn = computed(() => {
+    const a = this.data.currentAccount();
+    return a?.status === 'closed' ? (a.closed_at ?? '') : null;
+  });
+  readonly formatDateFr = formatDateFr;
+
   otherAccounts = computed(() =>
     this.data.accounts().filter((a) => a.status === 'active' && a.id !== this.data.currentAccountId())
   );

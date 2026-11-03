@@ -28,7 +28,7 @@
         </button>
         <div class="sep"></div>
       }
-      @for (a of accounts(); track a.id) {
+      @for (a of activeAccounts(); track a.id) {
         <button
           type="button"
           role="option"
@@ -40,6 +40,23 @@
           <span class="o-name">{{ a.name }}</span>
           <span class="tag" [class.savings]="a.kind === 'savings'">{{ kindLabel(a) }}</span>
         </button>
+      }
+      @if (closedAccounts().length > 0) {
+        <div class="sep"></div>
+        <div class="group-title">Clôturés</div>
+        @for (a of closedAccounts(); track a.id) {
+          <button
+            type="button"
+            role="option"
+            class="option closed"
+            [class.selected]="!overview() && a.id === current()?.id"
+            [attr.aria-selected]="!overview() && a.id === current()?.id"
+            (click)="choose(a)"
+          >
+            <span class="o-name">{{ a.name }}</span>
+            <span class="tag">Clôturé</span>
+          </button>
+        }
       }
       <div class="sep"></div>
       <button type="button" class="option new" (click)="create()">
