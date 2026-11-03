@@ -22,6 +22,8 @@ const ICONS: Record<string, string> = {
   'chevron-up': '<path d="m18 15-6-6-6 6" />',
   'plus': '<path d="M5 12h14" /><path d="M12 5v14" />',
   'search': '<path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" />',
+  'clock': '<circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />',
+  'landmark': '<path d="M10 18v-7" /><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z" /><path d="M14 18v-7" /><path d="M18 18v-7" /><path d="M3 22h18" /><path d="M6 18v-7" />',
   'x': '<path d="M18 6 6 18" /><path d="m6 6 12 12" />',
 };
 

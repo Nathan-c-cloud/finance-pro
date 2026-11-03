@@ -100,8 +100,12 @@ export class MoisComponent {
 
   // Recherche par nom dans les transactions du mois (affichage seulement)
   query = signal('');
+  /** Filtre « dépenses sans date », activé depuis le panneau de rapprochement. */
+  undatedOnly = signal(false);
   visibleTransactions = computed<Transaction[]>(() =>
-    this.sortedTransactions().filter((t) => matchesSearch(t.name, this.query()))
+    this.sortedTransactions().filter(
+      (t) => matchesSearch(t.name, this.query()) && (!this.undatedOnly() || (t.type !== 'income' && !t.tx_date))
+    )
   );
   searchInfo = computed(
     () => `${this.visibleTransactions().length} sur ${this.data.currentMonthTransactions().length}`
@@ -118,7 +122,16 @@ export class MoisComponent {
     // Changer de mois efface la recherche : on ne veut pas croire qu'un mois est vide parce qu'un filtre reste actif.
     effect(() => {
       this.data.currentMonth()?.id;
-      untracked(() => this.query.set(''));
+      untracked(() => {
+        this.query.set('');
+        this.undatedOnly.set(false);
+      });
+    });
+    // Plus aucune dépense sans date (elles viennent d'être datées) : le filtre n'a plus lieu d'être.
+    effect(() => {
+      if (gapClues(this.data.currentMonthTransactions()).undatedExpenses.length === 0) {
+        untracked(() => this.undatedOnly.set(false));
+      }
     });
   }
 
@@ -321,12 +334,19 @@ export class MoisComponent {
     }
   }
 
-  /** Rappel sous le solde théorique : les dépenses sans date ne sont pas comptées aujourd'hui (null s'il n'y en a pas). */
-  undatedNote(): string | null {
+  /** Résumé court sous le solde théorique : les dépenses sans date ne sont pas comptées aujourd'hui (null s'il n'y en a pas). */
+  undatedLabel(): string | null {
     const c = gapClues(this.data.currentMonthTransactions());
     const u = c.undatedExpenses.length;
     if (u === 0) return null;
-    return `${u} dépense${u > 1 ? 's' : ''} sans date (${formatEUR(c.undatedTotal)}) ${u > 1 ? 'ne sont' : 'n\'est'} pas comptée${u > 1 ? 's' : ''} ici : sans date, on ne sait pas si ${u > 1 ? 'elles sont' : 'elle est'} déjà prélevée${u > 1 ? 's' : ''}. ${u > 1 ? 'Elles restent' : 'Elle reste'} dans le solde de fin de mois.`;
+    return `${u} dépense${u > 1 ? 's' : ''} sans date (${formatEUR(c.undatedTotal)}) non comptée${u > 1 ? 's' : ''}`;
+  }
+
+  /** Filtre la liste sur les dépenses sans date et y amène l'écran (utile sur mobile, où la liste est plus bas). */
+  filterUndated() {
+    this.query.set('');
+    this.undatedOnly.set(true);
+    setTimeout(() => document.getElementById('tx-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   /** Écart non nul (au centime près) entre le solde réel constaté et le solde théorique. */

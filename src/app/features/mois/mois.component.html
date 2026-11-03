@@ -98,7 +98,7 @@
 
         <section class="panel">
           <div class="panel-header">
-            <h3>Solde de départ &amp; rapprochement bancaire</h3>
+            <h3>Rapprochement bancaire</h3>
             @if (!editingBalance()) {
               <button class="link-btn" (click)="startEditBalance()">Modifier</button>
             }
@@ -111,32 +111,56 @@
           @if (!editingBalance()) {
             @if (data.reconciliation(); as r) {
               @if (data.startInfo(); as si) {
-                <div class="recon">
-                  <span>Solde de début : <strong>{{ formatEUR(si.value) }}</strong></span>
-                  <small class="recon-note">
-                    @if (si.isFirst) {
-                      Solde de départ du suivi, avant le premier mois.
-                    } @else if (si.prevForced) {
-                      Reprend le solde de fin forcé de {{ si.prevLabel }} (calculé avec ses transactions :
-                      {{ formatEUR(si.prevComputedEnd!) }}, écart : {{ formatEUR(si.gap) }}).
-                    } @else {
-                      Report automatique du solde de fin de {{ si.prevLabel }}.
-                    }
-                  </small>
+                <p class="recon-note">
+                  @if (si.isFirst) {
+                    Départ : solde initial du suivi.
+                  } @else if (si.prevForced) {
+                    Départ : solde de fin forcé de {{ si.prevLabel }} (calculé avec ses transactions :
+                    {{ formatEUR(si.prevComputedEnd!) }}, écart : {{ formatEUR(si.gap) }}).
+                  } @else {
+                    Départ : report automatique du solde de fin de {{ si.prevLabel }}.
+                  }
                   @if (si.prevForced) {
-                    <button class="link-btn revert" (click)="revertToAuto()">
-                      Revenir au calcul automatique de {{ si.prevLabel }}
-                    </button>
+                    <button class="link-btn" (click)="revertToAuto()">Revenir au calcul automatique</button>
                   }
-                  <span>Solde théorique aujourd'hui : <strong>{{ formatEUR(r.theoretical) }}</strong></span>
-                  @if (undatedNote(); as note) {
-                    <small class="recon-note">{{ note }}</small>
-                  }
-                  <span>Solde réel constaté : <strong [class.unset]="r.real === null">{{ r.real === null ? 'non renseigné' : formatEUR(r.real) }}</strong></span>
+                </p>
+
+                <div class="recon-cards">
+                  <div class="card recon-card">
+                    <div class="card-text">
+                      <span class="label">Solde théorique aujourd'hui</span>
+                      <span class="value">{{ formatEUR(r.theoretical) }}</span>
+                      @if (undatedLabel(); as u) {
+                        <button
+                          class="undated-link"
+                          title="Sans date, on ne sait pas si la dépense est déjà prélevée : elle n'est pas comptée ici, mais elle reste dans le solde de fin de mois."
+                          (click)="filterUndated()"
+                        >
+                          {{ u }} · Voir
+                        </button>
+                      }
+                    </div>
+                    <span class="card-icon"><app-icon name="clock" /></span>
+                  </div>
+
+                  <div class="card recon-card" [class.highlight]="r.real !== null" [class.unset]="r.real === null">
+                    <div class="card-text">
+                      <span class="label">Solde réel constaté</span>
+                      @if (r.real === null) {
+                        <span class="value unset">Non renseigné</span>
+                        <button class="undated-link" (click)="startEditBalance()">Renseigner le solde de ma banque</button>
+                      } @else {
+                        <span class="value">{{ formatEUR(r.real) }}</span>
+                      }
+                    </div>
+                    <span class="card-icon"><app-icon name="landmark" /></span>
+                  </div>
+
                   @if (r.gap !== null) {
-                    <span [class.negative]="r.gap < 0" [class.positive]="r.gap >= 0">
-                      Écart : <strong>{{ formatEUR(r.gap) }}</strong>
-                    </span>
+                    <div class="gap-chip" [class.ok]="!hasGap(r.gap)">
+                      <span>Écart</span>
+                      <strong>{{ hasGap(r.gap) ? (r.gap > 0 ? '+' : '') + formatEUR(r.gap) : 'Aucun, ton suivi est à jour' }}</strong>
+                    </div>
                   }
                 </div>
                 @if (hasGap(r.gap)) {
@@ -298,7 +322,13 @@
         }
       </div>
 
-      <app-search-box [(value)]="query" placeholder="Rechercher une transaction par nom" [info]="searchInfo()" />
+      <app-search-box id="tx-search" style="scroll-margin-top: 5.5rem" [(value)]="query" placeholder="Rechercher une transaction par nom" [info]="searchInfo()" />
+      @if (undatedOnly()) {
+        <p class="filter-chip">
+          Filtre : dépenses sans date
+          <button class="link-btn" (click)="undatedOnly.set(false)">Retirer le filtre</button>
+        </p>
+      }
 
       <app-sort-bar
         [options]="sortOptions"

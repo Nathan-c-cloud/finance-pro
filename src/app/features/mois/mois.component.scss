@@ -206,30 +206,6 @@ button.with-icon,
   white-space: nowrap;
 }
 
-.recon {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
-
-.recon strong {
-  color: var(--color-text);
-}
-
-.recon strong.unset {
-  color: var(--color-savings);
-}
-
-.recon .positive strong {
-  color: var(--color-income);
-}
-
-.recon .negative strong {
-  color: var(--color-expense);
-}
-
 .badge-forced {
   display: inline-block;
   margin-left: 0.35rem;
@@ -244,14 +220,87 @@ button.with-icon,
 }
 
 .recon-note {
-  margin-top: -0.15rem;
+  margin: 0 0 0.6rem;
   font-size: 0.78rem;
+  line-height: 1.4;
   color: var(--color-text-secondary);
 }
 
-.recon .revert {
+.recon-note .link-btn {
+  font-size: 0.78rem;
+}
+
+.recon-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.recon-card {
+  background: var(--color-surface-muted);
+  box-shadow: none;
+}
+
+.recon-card.highlight {
+  background: var(--color-primary-soft);
+}
+
+.recon-card.unset {
+  background: transparent;
+  border: 1px dashed var(--color-border-strong);
+}
+
+.recon-card .value.unset {
+  font-size: 1rem;
+  color: var(--color-savings);
+}
+
+.undated-link {
   align-self: flex-start;
-  font-size: 0.8rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.gap-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.6rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.82rem;
+}
+
+.gap-chip.ok {
+  background: var(--color-income-soft);
+  color: var(--color-income);
+}
+
+.gap-chip strong {
+  font-size: 0.95rem;
+}
+
+.filter-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+  font-size: 0.82rem;
 }
 
 .gap-help {
