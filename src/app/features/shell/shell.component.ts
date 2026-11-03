@@ -27,6 +27,8 @@ export class ShellComponent {
 
   /** Le sélecteur de mois n'a de sens que sur la page Mois. */
   isMoisPage = computed(() => this.url().startsWith('/mois'));
+  /** La vue « Tous les comptes » : le sélecteur de compte l'affiche à la place d'un compte. */
+  isOverviewPage = computed(() => this.url().startsWith('/ensemble'));
   /** Pages qui profitent d'une largeur étendue (deux colonnes, grille de cartes). */
   isWidePage = computed(() => this.isMoisPage() || this.url().startsWith('/categories'));
   showMonthPicker = computed(() => this.isMoisPage() && !!this.data.currentMonth());

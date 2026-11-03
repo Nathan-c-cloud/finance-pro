@@ -1,0 +1,230 @@
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.06));
+}
+
+.card.total {
+  background: var(--color-primary-soft);
+}
+
+.card-text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.label small {
+  font-size: 0.72rem;
+}
+
+.value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.value.savings {
+  color: var(--color-savings, var(--color-note-text));
+}
+
+.note {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.card.total .card-icon {
+  background: var(--color-surface);
+}
+
+.card-icon.savings {
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+}
+
+.panel {
+  margin-bottom: 1rem;
+}
+
+.hint {
+  margin: 0 0 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-primary-soft);
+}
+
+.a-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.a-icon.savings {
+  background: var(--color-note-soft);
+  color: var(--color-note-text);
+}
+
+.a-main {
+  display: grid;
+  flex: 1;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.a-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.a-kind {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.a-balance {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+thead th {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: normal;
+}
+
+tbody th {
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.strong {
+  font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sur mobile, chaque mois devient une petite carte : le titre de chaque colonne reste visible */
+  thead {
+    display: none;
+  }
+
+  table,
+  tbody,
+  tr,
+  th,
+  td {
+    display: block;
+  }
+
+  tr {
+    padding: 0.6rem 0.2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  th,
+  td {
+    padding: 0.15rem 0;
+    border: none;
+  }
+
+  td.num {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  td.num::before {
+    content: attr(data-label);
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+  }
+}

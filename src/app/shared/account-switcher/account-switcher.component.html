@@ -7,20 +7,34 @@
     [attr.aria-expanded]="open()"
     (click)="toggle()"
   >
-    <app-icon class="kind" [name]="isSavings() ? 'piggy-bank' : 'landmark'" />
-    <span class="name">{{ current()?.name ?? 'Compte' }}</span>
+    <app-icon class="kind" [name]="overview() ? 'wallet' : isSavings() ? 'piggy-bank' : 'landmark'" />
+    <span class="name">{{ overview() ? 'Tous les comptes' : (current()?.name ?? 'Compte') }}</span>
     <app-icon class="caret" name="chevron-down" />
   </button>
 
   @if (open()) {
     <div class="list" role="listbox" aria-label="Mes comptes">
+      @if (accounts().length > 1) {
+        <button
+          type="button"
+          role="option"
+          class="option"
+          [class.selected]="overview()"
+          [attr.aria-selected]="overview()"
+          (click)="showOverview()"
+        >
+          <span class="o-name">Tous les comptes</span>
+          <span class="tag">Total</span>
+        </button>
+        <div class="sep"></div>
+      }
       @for (a of accounts(); track a.id) {
         <button
           type="button"
           role="option"
           class="option"
-          [class.selected]="a.id === current()?.id"
-          [attr.aria-selected]="a.id === current()?.id"
+          [class.selected]="!overview() && a.id === current()?.id"
+          [attr.aria-selected]="!overview() && a.id === current()?.id"
           (click)="choose(a)"
         >
           <span class="o-name">{{ a.name }}</span>

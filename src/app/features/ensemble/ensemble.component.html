@@ -1,0 +1,101 @@
+@if (data.loading()) {
+  <p>Chargement...</p>
+} @else if (consolidated().accounts.length === 0) {
+  <p>Aucun compte actif pour l'instant.</p>
+} @else {
+  <section class="summary" aria-label="Synthèse de tous les comptes">
+    <div class="card total">
+      <div class="card-text">
+        <span class="label">Solde total <small>({{ consolidated().accounts.length }} compte{{ consolidated().accounts.length > 1 ? 's' : '' }} actif{{ consolidated().accounts.length > 1 ? 's' : '' }}, fin de {{ currentLabel() }})</small></span>
+        <span class="value">{{ eur(consolidated().totalBalance) }}</span>
+      </div>
+      <span class="card-icon"><app-icon name="wallet" /></span>
+    </div>
+    <div class="card">
+      <div class="card-text">
+        <span class="label">Dont comptes d'épargne</span>
+        <span class="value savings">{{ eur(consolidated().savingsBalance) }}</span>
+      </div>
+      <span class="card-icon savings"><app-icon name="piggy-bank" /></span>
+    </div>
+    <div class="card">
+      <div class="card-text">
+        <span class="label">Taux d'épargne global <small>({{ currentLabel() }})</small></span>
+        <span class="value">{{ pct(consolidated().current?.savingsRate ?? null) }}</span>
+        @if (consolidated().current && consolidated().current!.savingsRate === null) {
+          <small class="note">
+            {{ consolidated().current!.income > 0 ? 'Épargne supérieure aux revenus du mois' : 'Aucun revenu saisi ce mois' }}
+          </small>
+        }
+      </div>
+      <span class="card-icon"><app-icon name="chart-pie" /></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>Mes comptes</h3>
+    <p class="hint">Un virement entre tes comptes déplace de l'argent d'un compte à l'autre sans changer le total. Clique sur un compte pour l'ouvrir.</p>
+    <ul class="accounts">
+      @for (b of consolidated().accounts; track b.account.id) {
+        <li>
+          <button type="button" class="account" (click)="open(b.account)">
+            <span class="a-icon" [class.savings]="b.account.kind === 'savings'">
+              <app-icon [name]="b.account.kind === 'savings' ? 'piggy-bank' : 'landmark'" />
+            </span>
+            <span class="a-main">
+              <strong>{{ b.account.name }}</strong>
+              <span class="a-kind">{{ kindLabel(b.account) }}</span>
+            </span>
+            <span class="a-balance">{{ eur(b.balance) }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+
+  @if (consolidated().months.length > 0) {
+    <section class="panel">
+      <h3>Évolution du solde total</h3>
+      <canvas #balanceCanvas></canvas>
+    </section>
+
+    <section class="panel">
+      <h3>Mois par mois</h3>
+      <p class="hint">
+        Revenus, dépenses et épargne de tes comptes courants. L'épargne comprend les virements vers tes comptes d'épargne,
+        les retraits (en moins) et les mouvements directs sur ces comptes.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Mois</th>
+              <th scope="col" class="num">Revenus</th>
+              <th scope="col" class="num">Dépenses (hors épargne)</th>
+              <th scope="col" class="num">Épargne</th>
+              <th scope="col" class="num">Taux d'épargne</th>
+              <th scope="col" class="num">Solde total fin de mois</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of rows(); track m.monthDate) {
+              <tr>
+                <th scope="row">{{ data.monthLabel(m.monthDate) }}</th>
+                <td class="num" data-label="Revenus">{{ eur(m.income) }}</td>
+                <td class="num" data-label="Dépenses (hors épargne)">{{ eur(m.expensesExcludingSavings) }}</td>
+                <td class="num" data-label="Épargne">{{ eur(m.savings) }}</td>
+                <td class="num" data-label="Taux d'épargne">{{ pct(m.savingsRate) }}</td>
+                <td class="num strong" data-label="Solde total fin de mois">{{ eur(m.totalBalance) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (hiddenCount() > 0) {
+        <button type="button" class="link-btn" (click)="showAll.set(!showAll())">
+          {{ showAll() ? 'Réduire' : 'Afficher les ' + hiddenCount() + ' mois plus anciens' }}
+        </button>
+      }
+    </section>
+  }
+}

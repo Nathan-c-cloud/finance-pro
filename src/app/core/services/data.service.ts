@@ -24,7 +24,8 @@ import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
 import { BudgetSuggestion, suggestBudgets } from './stats';
-import { addMonths, budgetSpent, budgetStatus, formatMonthLabel, summarizeMonth, theoreticalBalanceToday, toMonthDateString } from './calc';
+import { buildAccountSummaries } from './summaries';
+import { addMonths, budgetSpent, budgetStatus, formatMonthLabel, theoreticalBalanceToday, toMonthDateString } from './calc';
 
 const DEFAULT_CATEGORIES = [
   'Logement',
@@ -88,35 +89,41 @@ export class DataService {
    *  (ne devrait pas arriver) on prend le plus récent ; s'il n'y en a aucun, le plus récent tout court. */
   readonly currentMonth = signal<MonthRow | null>(null);
 
-  /** Résumés de TOUS les mois, dans l'ordre, soldes reportés en chaîne. */
-  readonly allSummaries = computed<MonthSummary[]>(() => {
-    const months = this.sortedMonths();
+  /**
+   * Résumés de tous les mois de CHAQUE compte (clé : identifiant du compte), soldes reportés en chaîne.
+   * Sert au compte affiché (allSummaries) et à la vue « Tous les comptes ».
+   */
+  readonly summariesByAccount = computed(() => {
     const cats = this.categories();
-    const summaries: MonthSummary[] = [];
+    const accounts = this.accounts();
     // Un virement avec un compte d'épargne compte comme de l'épargne (voir summarizeMonth).
-    const savingsIds = new Set(this.accounts().filter((a) => a.kind === 'savings').map((a) => a.id));
+    const savingsAccountIds = new Set(accounts.filter((a) => a.kind === 'savings').map((a) => a.id));
     // Les mouvements directs des comptes d'épargne (dépense, intérêts...) comptent dans l'épargne du mois, sur le
     // compte courant de référence (le plus ancien compte courant actif) : un seul compte, pour ne jamais compter deux fois.
-    const flowsHere = this.currentAccountId() === this.savingsReferenceAccountId();
-    const savingsFlows = flowsHere ? this.savingsAccountsFlowByMonth() : new Map<string, number>();
-    // Le solde de départ appartient au compte (chaque compte repart de son propre solde).
-    let carry = this.currentAccount()?.opening_balance ?? 0;
-    months.forEach((m, i) => {
-      const tx = this.transactions().filter((t) => t.month_id === m.id);
-      const own = m.starting_balance_override;
-      // Premier mois : son solde de début est le solde initial du suivi (une éventuelle ancienne valeur forcée prime).
-      // Autres mois : ils reprennent la fin du mois précédent, qui peut elle même être forcée (voir ci dessous).
-      const startingBalance = i === 0 && own !== null && own !== undefined ? own : carry;
-      // Un recalage depuis le mois suivant force le solde de FIN de ce mois : la valeur est stockée sur le mois suivant
-      // (starting_balance_override), et c'est ce mois ci qui l'affiche comme "solde forcé de fin de mois".
-      const nextOverride = months[i + 1]?.starting_balance_override;
-      const forcedEnd = nextOverride !== null && nextOverride !== undefined ? nextOverride : null;
-      const s = summarizeMonth(m, tx, cats, startingBalance, forcedEnd, savingsIds, savingsFlows.get(m.month_date) ?? 0);
-      summaries.push(s);
-      carry = s.endingBalance;
-    });
-    return summaries;
+    const referenceId = this.savingsReferenceAccountId();
+    const flows = this.savingsAccountsFlowByMonth();
+    const allMonths = this.allMonths();
+    const allTx = this.allTransactions();
+    const map = new Map<string, MonthSummary[]>();
+    for (const account of accounts) {
+      const months = monthsOfAccount(allMonths, account.id);
+      map.set(
+        account.id,
+        buildAccountSummaries({
+          account,
+          months,
+          transactions: transactionsOfMonths(allTx, months),
+          categories: cats,
+          savingsAccountIds,
+          savingsFlows: account.id === referenceId ? flows : new Map<string, number>(),
+        })
+      );
+    }
+    return map;
   });
+
+  /** Résumés de TOUS les mois du compte affiché, dans l'ordre, soldes reportés en chaîne. */
+  readonly allSummaries = computed<MonthSummary[]>(() => this.summariesByAccount().get(this.currentAccountId() ?? '') ?? []);
 
   /** Compte courant qui reçoit dans son épargne du mois les mouvements des comptes d'épargne : le plus ancien compte courant actif. */
   readonly savingsReferenceAccountId = computed<string | null>(() => {
