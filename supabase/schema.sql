@@ -27,6 +27,30 @@ create table if not exists categories (
 );
 
 -- ------------------------------------------------------------
+-- Comptes bancaires (un utilisateur peut en avoir plusieurs).
+-- Chaque compte a sa propre chronologie de mois, ses dépenses fixes et son solde de départ.
+-- Un compte ne se supprime pas : il se clôture (pas de politique DELETE ci dessous).
+-- Migration d'une base existante : supabase/migrations/2026-11-03_accounts_*.sql
+-- ------------------------------------------------------------
+create table if not exists accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null check (length(btrim(name)) > 0),
+  -- Étiquette choisie librement par l'utilisateur (c'est lui qui décide de l'usage d'un compte).
+  kind text not null default 'checking' check (kind in ('checking', 'savings')),
+  opening_balance numeric not null default 0, -- solde de départ du suivi de ce compte (sans origine)
+  opening_date date,                          -- information : mois de départ du suivi (le 1er du mois)
+  status text not null default 'active' check (status in ('active', 'closed')),
+  closed_at date,
+  created_at timestamptz not null default now(),
+  unique (user_id, name),
+  -- Cible des clés étrangères composites : un mois ou une dépense fixe ne peut jamais
+  -- être rattaché au compte d'un autre utilisateur.
+  constraint accounts_id_user_key unique (id, user_id),
+  constraint accounts_closed_consistent check ((status = 'closed') = (closed_at is not null))
+);
+
+-- ------------------------------------------------------------
 -- Référentiel des dépenses fixes (abonnements, loyer, etc.)
 -- Source de vérité "actuelle" : modifier une ligne ici n'affecte
 -- jamais les mois déjà générés (copie figée dans transactions).
@@ -34,6 +58,8 @@ create table if not exists categories (
 create table if not exists fixed_expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  account_id uuid not null,
+  constraint fixed_expenses_account_fk foreign key (account_id, user_id) references accounts (id, user_id),
   name text not null,
   amount numeric not null,
   category_id uuid references categories(id) on delete set null,
@@ -50,12 +76,14 @@ create table if not exists fixed_expenses (
 create table if not exists months (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  account_id uuid not null,
+  constraint months_account_fk foreign key (account_id, user_id) references accounts (id, user_id),
   month_date date not null,                 -- toujours le 1er du mois
   status text not null default 'current' check (status in ('current','closed')),
   starting_balance_override numeric,         -- pour recaler sur la banque si besoin
   real_balance_check numeric,                -- dernier solde réel saisi (rapprochement)
   created_at timestamptz not null default now(),
-  unique (user_id, month_date)
+  constraint months_account_month_key unique (account_id, month_date) -- un mois par compte
 );
 
 -- ------------------------------------------------------------
@@ -78,8 +106,45 @@ create table if not exists transactions (
   created_at timestamptz not null default now()
 );
 
+-- Rattachement automatique : une ligne insérée sans account_id est rattachée au plus ancien compte
+-- actif de l'utilisateur ; s'il n'a encore aucun compte, un "Compte principal" est créé.
+create or replace function assign_default_account() returns trigger
+language plpgsql as $$
+begin
+  if new.account_id is null then
+    select a.id into new.account_id
+      from accounts a
+     where a.user_id = new.user_id and a.status = 'active'
+     order by a.created_at, a.id
+     limit 1;
+
+    if new.account_id is null then
+      if exists (select 1 from accounts a where a.user_id = new.user_id) then
+        raise exception 'Aucun compte actif : choisis un compte pour cette opération.';
+      end if;
+      insert into accounts (user_id, name, kind)
+      values (new.user_id, 'Compte principal', 'checking')
+      returning id into new.account_id;
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists months_assign_account on months;
+create trigger months_assign_account
+  before insert on months
+  for each row execute function assign_default_account();
+
+drop trigger if exists fixed_expenses_assign_account on fixed_expenses;
+create trigger fixed_expenses_assign_account
+  before insert on fixed_expenses
+  for each row execute function assign_default_account();
+
+create index if not exists idx_accounts_user on accounts(user_id);
 create index if not exists idx_fixed_expenses_user on fixed_expenses(user_id);
+create index if not exists idx_fixed_expenses_account on fixed_expenses(account_id);
 create index if not exists idx_months_user on months(user_id);
+create index if not exists idx_months_account on months(account_id);
 create index if not exists idx_transactions_user on transactions(user_id);
 create index if not exists idx_transactions_month on transactions(month_id);
 create index if not exists idx_categories_user on categories(user_id);
@@ -88,6 +153,7 @@ create index if not exists idx_categories_user on categories(user_id);
 -- Row Level Security : chacun ne voit et ne modifie que ses données
 -- ============================================================
 alter table user_settings enable row level security;
+alter table accounts enable row level security;
 alter table categories enable row level security;
 alter table fixed_expenses enable row level security;
 alter table months enable row level security;
@@ -95,6 +161,14 @@ alter table transactions enable row level security;
 
 create policy "user_settings_owner" on user_settings
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Pas de politique DELETE pour les comptes : on les clôture, on ne les supprime pas.
+create policy "accounts_select_owner" on accounts
+  for select using (auth.uid() = user_id);
+create policy "accounts_insert_owner" on accounts
+  for insert with check (auth.uid() = user_id);
+create policy "accounts_update_owner" on accounts
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "categories_owner" on categories
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

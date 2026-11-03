@@ -23,11 +23,34 @@ export interface MonthBudget {
   created_at?: string;
 }
 
+/** Type d'un compte : une étiquette que l'utilisateur choisit (et peut changer), pas une règle de la banque. */
+export type AccountKind = 'checking' | 'savings';
+
+export type AccountStatus = 'active' | 'closed';
+
+/** Un compte bancaire. Chaque compte a sa propre chronologie de mois et ses dépenses fixes. Il ne se supprime pas : il se clôture. */
+export interface Account {
+  id: string;
+  user_id: string;
+  name: string;
+  kind: AccountKind;
+  /** Solde de départ du suivi de ce compte (sans origine : on part de ce solde et on avance). */
+  opening_balance: number;
+  /** Information : mois de départ du suivi ('YYYY-MM-01'). */
+  opening_date: string | null;
+  status: AccountStatus;
+  /** Date de clôture ('YYYY-MM-DD'), renseignée si et seulement si le compte est clôturé. */
+  closed_at: string | null;
+  created_at?: string;
+}
+
 export type Frequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
 
 export interface FixedExpense {
   id: string;
   user_id: string;
+  /** Compte auquel appartient cette dépense fixe (rattachée automatiquement au premier compte actif si absent à la création). */
+  account_id?: string;
   name: string;
   amount: number;
   category_id: string | null;
@@ -43,6 +66,8 @@ export type MonthStatus = 'current' | 'closed';
 export interface MonthRow {
   id: string;
   user_id: string;
+  /** Compte auquel appartient ce mois (rattaché automatiquement au premier compte actif si absent à la création). */
+  account_id?: string;
   month_date: string; // 'YYYY-MM-01'
   status: MonthStatus;
   starting_balance_override: number | null;
