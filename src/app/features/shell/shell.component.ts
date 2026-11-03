@@ -4,14 +4,15 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 import { DataService } from '../../core/services/data.service';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { AccountSwitcherComponent } from '../../shared/account-switcher/account-switcher.component';
 import { MonthPickerComponent } from '../../shared/month-picker/month-picker.component';
 
-type OpenMenu = 'nav' | 'months' | 'account' | null;
+type OpenMenu = 'nav' | 'months' | 'accounts' | 'account' | null;
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MonthPickerComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MonthPickerComponent, AccountSwitcherComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -26,6 +27,8 @@ export class ShellComponent {
 
   /** Le sélecteur de mois n'a de sens que sur la page Mois. */
   isMoisPage = computed(() => this.url().startsWith('/mois'));
+  /** La vue « Tous les comptes » : le sélecteur de compte l'affiche à la place d'un compte. */
+  isOverviewPage = computed(() => this.url().startsWith('/ensemble'));
   /** Pages qui profitent d'une largeur étendue (deux colonnes, grille de cartes). */
   isWidePage = computed(() => this.isMoisPage() || this.url().startsWith('/categories'));
   showMonthPicker = computed(() => this.isMoisPage() && !!this.data.currentMonth());
@@ -74,6 +77,12 @@ export class ShellComponent {
   onMonthsOpenChange(isOpen: boolean) {
     if (isOpen) this.open.set('months');
     else if (this.open() === 'months') this.open.set(null);
+  }
+
+  /** Un seul menu ouvert à la fois : la liste des comptes s'ouvre ou se ferme via le sélecteur de compte. */
+  onAccountsOpenChange(isOpen: boolean) {
+    if (isOpen) this.open.set('accounts');
+    else if (this.open() === 'accounts') this.open.set(null);
   }
 
   goToMonth(id: string) {

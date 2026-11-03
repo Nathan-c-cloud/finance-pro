@@ -23,17 +23,42 @@ export interface MonthBudget {
   created_at?: string;
 }
 
+/** Type d'un compte : une étiquette que l'utilisateur choisit (et peut changer), pas une règle de la banque. */
+export type AccountKind = 'checking' | 'savings';
+
+export type AccountStatus = 'active' | 'closed';
+
+/** Un compte bancaire. Chaque compte a sa propre chronologie de mois et ses dépenses fixes. Il ne se supprime pas : il se clôture. */
+export interface Account {
+  id: string;
+  user_id: string;
+  name: string;
+  kind: AccountKind;
+  /** Solde de départ du suivi de ce compte (sans origine : on part de ce solde et on avance). */
+  opening_balance: number;
+  /** Information : mois de départ du suivi ('YYYY-MM-01'). */
+  opening_date: string | null;
+  status: AccountStatus;
+  /** Date de clôture ('YYYY-MM-DD'), renseignée si et seulement si le compte est clôturé. */
+  closed_at: string | null;
+  created_at?: string;
+}
+
 export type Frequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
 
 export interface FixedExpense {
   id: string;
   user_id: string;
+  /** Compte auquel appartient cette dépense fixe (rattachée automatiquement au premier compte actif si absent à la création). */
+  account_id?: string;
   name: string;
   amount: number;
   category_id: string | null;
   frequency: Frequency;
   /** Jour du mois (1 à 31) où la dépense est prélevée ; null = pas de date (transaction ajoutée sans date). */
   payment_day: number | null;
+  /** Compte de destination : la dépense fixe est alors un virement vers ce compte (jour de prélèvement obligatoire). */
+  transfer_account_id?: string | null;
   active: boolean;
   created_at?: string;
 }
@@ -43,6 +68,8 @@ export type MonthStatus = 'current' | 'closed';
 export interface MonthRow {
   id: string;
   user_id: string;
+  /** Compte auquel appartient ce mois (rattaché automatiquement au premier compte actif si absent à la création). */
+  account_id?: string;
   month_date: string; // 'YYYY-MM-01'
   status: MonthStatus;
   starting_balance_override: number | null;
@@ -64,6 +91,10 @@ export interface Transaction {
   detail: string | null;
   necessary: boolean | null;
   received: boolean | null;
+  /** Identifiant commun aux deux lignes d'un virement entre comptes (sortie + entrée), null pour une transaction ordinaire. */
+  transfer_id?: string | null;
+  /** Pour un virement : le compte "en face" (celui qui reçoit si c'est une sortie, celui qui envoie si c'est une entrée). */
+  transfer_account_id?: string | null;
   created_at?: string;
 }
 
@@ -89,6 +120,16 @@ export interface MonthSummary {
   endingForced: boolean;
   /** Épargne / revenus (0..1), ou null quand il n'a pas de sens : pas de revenus, ou épargne supérieure aux revenus. */
   savingsRate: number | null;
+  /**
+   * Part de `savings` venant des mouvements directs des comptes d'épargne dans ce mois (dépenses en moins, revenus
+   * comme des intérêts en plus). Elle compte dans l'épargne et le taux, mais ne touche pas le solde de ce compte.
+   */
+  savingsFromSavingsAccounts: number;
+  /**
+   * Virements avec les autres comptes courants du mois : entrées moins sorties. Ils changent le solde mais ne sont
+   * ni des revenus ni des dépenses. (Les virements avec un compte d'épargne sont dans `savings`.)
+   */
+  transfersNet: number;
   /** Dépenses par catégorie, hors catégorie Épargne (comme "Dépenses (hors épargne)"). */
   byCategory: { categoryId: string | null; categoryName: string; amount: number }[];
 }

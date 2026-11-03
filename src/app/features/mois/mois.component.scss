@@ -429,7 +429,7 @@ button.recalibrate {
 
 :host {
   /* Mêmes colonnes pour la ligne de titres et pour chaque transaction */
-  --tx-cols: 64px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
+  --tx-cols: 72px minmax(160px, 2fr) 100px minmax(130px, 1.2fr) 140px 105px 28px;
 }
 
 .no-result {
@@ -487,14 +487,50 @@ button.recalibrate {
   font-size: 0.85rem;
 }
 
-.tx-row.income {
-  background: var(--color-income-soft);
-  border-radius: var(--radius-md);
-}
-
 .tx-type {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+}
+
+/* Revenu et virement : la ligne est teintée comme une bande aux bouts bien arrondis. La bande déborde de la ligne
+   (marge négative égale à son rembourrage) : les champs restent alignés avec ceux des autres lignes. */
+.tx-row.income,
+.tx-row.transfer {
+  --band-x: 0.75rem;
+  --band-y: 0.18rem;
+  padding: var(--band-y) var(--band-x);
+  margin: calc(var(--band-y) * -1) calc(var(--band-x) * -1);
+  border-radius: 18px;
+}
+
+.tx-row.income {
+  background: var(--color-income-soft);
+}
+
+.tx-row.transfer {
+  background: var(--color-primary-soft);
+}
+
+/* Compte en face d'un virement : un champ en lecture seule, aligné comme les listes des autres lignes */
+.peer {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.25;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Statut d'un virement : même pastille que « Reçu » / « À venir », sans action possible */
+.toggle .toggle-chip.static {
+  pointer-events: none;
 }
 
 /* ---------- État vide : aucune transaction ---------- */
@@ -665,7 +701,9 @@ button.recalibrate {
     gap: 0.6rem;
   }
 
-  .tx-row {
+  .tx-row,
+  .tx-row.income,
+  .tx-row.transfer {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'type delete'
@@ -674,6 +712,7 @@ button.recalibrate {
       'date toggle';
     gap: 0.5rem;
     padding: 0.7rem;
+    margin: 0;
     border: 1px solid var(--color-border);
     border-radius: 14px;
   }
@@ -709,6 +748,11 @@ button.recalibrate {
 
   .toggle .toggle-chip {
     padding: 0.5rem;
+  }
+
+  /* Le nom du compte en face peut passer sur deux lignes plutôt qu'être coupé */
+  .peer {
+    white-space: normal;
   }
 }
 

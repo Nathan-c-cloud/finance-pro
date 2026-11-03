@@ -10,7 +10,15 @@
     Le jour de prélèvement est facultatif : s'il est renseigné (de 1 à 31), c'est exactement ce jour que reçoit la transaction
     quand la dépense est ajoutée à un mois (si le mois est plus court, ce sera son dernier jour). Laissé vide, la transaction est ajoutée sans date.
   </p>
+  <p class="hint">
+    Pour un virement qui revient chaque mois (ton épargne, par exemple), choisis « Virement vers » dans la liste
+    Catégorie : à l'ajout au mois, la sortie est créée sur ce compte et l'entrée sur le compte de destination.
+    Le jour de prélèvement est alors obligatoire. Ça compte comme de l'épargne si le compte de destination est un compte d'épargne.
+  </p>
 
+  @if (data.currentAccount()?.status === 'closed') {
+    <p class="hint">Ce compte est clôturé : ses dépenses fixes sont arrêtées et on n'en ajoute plus. Rouvre-le dans Réglages pour le réutiliser.</p>
+  } @else {
   <div class="add-fe">
     <h4>Ajouter une dépense fixe</h4>
     <div class="add-fe-form">
@@ -29,11 +37,18 @@
         />
       </label>
       <label class="field">
-        <span class="field-label">Catégorie</span>
-        <select [ngModel]="form().category_id" (ngModelChange)="updateFormField('category_id', $event)">
-          <option [ngValue]="null">Sans catégorie</option>
+        <span class="field-label">Catégorie ou virement</span>
+        <select [ngModel]="form().dest" (ngModelChange)="updateFormField('dest', $event)">
+          <option value="">Sans catégorie</option>
           @for (c of data.activeCategories(); track c.id) {
-            <option [ngValue]="c.id">{{ c.name }}</option>
+            <option [value]="c.id">{{ c.name }}</option>
+          }
+          @if (otherAccounts().length > 0) {
+            <optgroup label="Virement vers un autre compte">
+              @for (a of otherAccounts(); track a.id) {
+                <option [value]="transferPrefix + a.id">Vers {{ a.name }}</option>
+              }
+            </optgroup>
           }
         </select>
       </label>
@@ -67,6 +82,7 @@
       <p class="error">{{ error() }}</p>
     }
   </div>
+  }
 
   <app-search-box [(value)]="query" placeholder="Rechercher une dépense fixe par nom" [info]="searchInfo()" />
 
@@ -81,7 +97,7 @@
   <div class="fe-head" aria-hidden="true">
     <span>Nom</span>
     <span>Montant (€)</span>
-    <span>Catégorie</span>
+    <span>Catégorie ou virement</span>
     <span>Fréquence</span>
     <span title="Jour du mois (de 1 à 31) où la dépense est prélevée. Vide : la transaction est ajoutée sans date.">Jour de prélèvement</span>
     <span>État</span>
@@ -105,11 +121,21 @@
           />
         </label>
         <label class="field fe-cat">
-          <span class="field-label row-label">Catégorie</span>
-          <select [ngModel]="f.category_id" (ngModelChange)="updateCategory(f.id, $event)">
-            <option [ngValue]="null">Sans catégorie</option>
+          <span class="field-label row-label">Catégorie ou virement</span>
+          <select (change)="updateDest(f, $any($event.target))">
+            <option value="" [selected]="destOf(f) === ''">Sans catégorie</option>
             @for (c of data.categoryOptions(f.category_id); track c.id) {
-              <option [ngValue]="c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
+              <option [value]="c.id" [selected]="destOf(f) === c.id">{{ c.name }}{{ c.archived ? ' (archivée)' : '' }}</option>
+            }
+            @if (otherAccounts().length > 0 || staleTransferAccount(f)) {
+              <optgroup label="Virement vers un autre compte">
+                @for (a of otherAccounts(); track a.id) {
+                  <option [value]="transferPrefix + a.id" [selected]="destOf(f) === transferPrefix + a.id">Vers {{ a.name }}</option>
+                }
+                @if (staleTransferAccount(f); as stale) {
+                  <option [value]="transferPrefix + stale.id" selected>Vers {{ stale.name }} (clôturé)</option>
+                }
+              </optgroup>
             }
           </select>
         </label>

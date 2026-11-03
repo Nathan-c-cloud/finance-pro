@@ -16,6 +16,12 @@
       </nav>
 
       <div class="right">
+        <app-account-switcher
+          [open]="open() === 'accounts'"
+          [overview]="isOverviewPage()"
+          (openChange)="onAccountsOpenChange($event)"
+        />
+
         @if (showMonthPicker()) {
           <app-month-picker
             [months]="data.sortedMonths()"

@@ -49,10 +49,12 @@
       <h3>Revenus / Dépenses / Épargne</h3>
       <canvas #flowCanvas></canvas>
     </div>
-    <div class="panel">
-      <h3>Taux d'épargne dans le temps</h3>
-      <canvas #rateCanvas></canvas>
-    </div>
+    @if (data.currentAccount()?.kind !== 'savings') {
+      <div class="panel">
+        <h3>Taux d'épargne dans le temps</h3>
+        <canvas #rateCanvas></canvas>
+      </div>
+    }
     <div class="panel">
       <div class="panel-head">
         <h3>Répartition par catégorie</h3>

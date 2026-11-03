@@ -13,14 +13,24 @@ import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 interface NewFixedForm {
   name: string;
   amount: number | null;
-  category_id: string | null;
+  /** Catégorie ou virement, d'une seule liste : '' (sans catégorie), l'identifiant d'une catégorie, ou 'transfer:<identifiant du compte>'. */
+  dest: string;
   frequency: Frequency;
   payment_day: number | null;
 }
 
+const TRANSFER_PREFIX = 'transfer:';
+
 function emptyForm(): NewFixedForm {
-  return { name: '', amount: null, category_id: null, frequency: 'monthly', payment_day: null };
+  return { name: '', amount: null, dest: '', frequency: 'monthly', payment_day: null };
 }
+
+/** Valeur de la liste « Catégorie ou virement » pour une dépense fixe enregistrée. */
+function destOf(f: FixedExpense): string {
+  return f.transfer_account_id ? TRANSFER_PREFIX + f.transfer_account_id : (f.category_id ?? '');
+}
+
+const NEEDS_DAY = 'Un virement fixe a besoin d\'un jour de prélèvement (de 1 à 31) : un virement a toujours une date.';
 
 @Component({
   selector: 'app-fixed-expenses',
@@ -90,6 +100,27 @@ export class FixedExpensesComponent {
 
   private dialog = inject(DialogService);
 
+  destOf = destOf;
+  transferPrefix = TRANSFER_PREFIX;
+
+  /** Comptes vers lesquels une dépense fixe du compte affiché peut virer : les autres comptes actifs. */
+  otherAccounts = computed(() =>
+    this.data.accounts().filter((a) => a.status === 'active' && a.id !== this.data.currentAccountId())
+  );
+
+  /** Compte de destination déjà enregistré mais qui n'est plus proposé (clôturé), pour le montrer au lieu de l'effacer. */
+  staleTransferAccount(f: FixedExpense) {
+    if (!f.transfer_account_id) return null;
+    if (this.otherAccounts().some((a) => a.id === f.transfer_account_id)) return null;
+    return this.data.accounts().find((a) => a.id === f.transfer_account_id) ?? null;
+  }
+
+  /** Découpe la valeur de la liste en catégorie ou compte de destination. */
+  private parseDest(dest: string): { category_id: string | null; transfer_account_id: string | null } {
+    if (dest.startsWith(TRANSFER_PREFIX)) return { category_id: null, transfer_account_id: dest.slice(TRANSFER_PREFIX.length) };
+    return { category_id: dest || null, transfer_account_id: null };
+  }
+
   constructor(public data: DataService) {}
 
   /** Total actif ramené au mois : chaque dépense compte pour sa part mensuelle. */
@@ -114,13 +145,19 @@ export class FixedExpensesComponent {
       this.error.set('Le jour de prélèvement doit être un entier de 1 à 31, ou rester vide.');
       return;
     }
+    const dest = this.parseDest(f.dest);
+    if (dest.transfer_account_id && f.payment_day === null) {
+      this.error.set(NEEDS_DAY);
+      return;
+    }
     this.saving.set(true);
     this.error.set(null);
     try {
       await this.data.addFixedExpense({
         name: f.name.trim(),
         amount: Math.abs(f.amount),
-        category_id: f.category_id,
+        category_id: dest.category_id,
+        transfer_account_id: dest.transfer_account_id,
         frequency: f.frequency,
         payment_day: f.payment_day,
         active: true,
@@ -142,8 +179,21 @@ export class FixedExpensesComponent {
     if (!isNaN(n)) await this.data.updateFixedExpense(id, { amount: Math.abs(n) });
   }
 
-  async updateCategory(id: string, value: string) {
-    await this.data.updateFixedExpense(id, { category_id: value || null });
+  /** Liste « Catégorie ou virement » d'une ligne : choisir un compte en fait un virement fixe (sans catégorie). */
+  async updateDest(f: FixedExpense, select: HTMLSelectElement) {
+    const dest = this.parseDest(select.value);
+    this.error.set(null);
+    if (dest.transfer_account_id && f.payment_day === null) {
+      select.value = destOf(f);
+      this.error.set(NEEDS_DAY);
+      return;
+    }
+    try {
+      await this.data.updateFixedExpense(f.id, dest);
+    } catch (e: any) {
+      select.value = destOf(f);
+      this.error.set(e?.message ?? 'Erreur lors du changement.');
+    }
   }
 
   async updateFrequency(id: string, value: Frequency) {
@@ -163,6 +213,12 @@ export class FixedExpensesComponent {
     if (!validDay(n)) {
       input.value = old === null ? '' : String(old);
       this.error.set('Le jour de prélèvement doit être un entier de 1 à 31, ou rester vide.');
+      return;
+    }
+    const current = this.data.fixedExpenses().find((f) => f.id === id);
+    if (n === null && current?.transfer_account_id) {
+      input.value = old === null ? '' : String(old);
+      this.error.set(NEEDS_DAY);
       return;
     }
     this.error.set(null);

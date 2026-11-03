@@ -1,0 +1,68 @@
+<div class="switcher">
+  <button
+    class="trigger"
+    type="button"
+    aria-haspopup="listbox"
+    aria-label="Changer de compte"
+    [attr.aria-expanded]="open()"
+    (click)="toggle()"
+  >
+    <app-icon class="kind" [name]="overview() ? 'wallet' : isSavings() ? 'piggy-bank' : 'landmark'" />
+    <span class="name">{{ overview() ? 'Tous les comptes' : (current()?.name ?? 'Compte') }}</span>
+    <app-icon class="caret" name="chevron-down" />
+  </button>
+
+  @if (open()) {
+    <div class="list" role="listbox" aria-label="Mes comptes">
+      @if (accounts().length > 1) {
+        <button
+          type="button"
+          role="option"
+          class="option"
+          [class.selected]="overview()"
+          [attr.aria-selected]="overview()"
+          (click)="showOverview()"
+        >
+          <span class="o-name">Tous les comptes</span>
+          <span class="tag">Total</span>
+        </button>
+        <div class="sep"></div>
+      }
+      @for (a of activeAccounts(); track a.id) {
+        <button
+          type="button"
+          role="option"
+          class="option"
+          [class.selected]="!overview() && a.id === current()?.id"
+          [attr.aria-selected]="!overview() && a.id === current()?.id"
+          (click)="choose(a)"
+        >
+          <span class="o-name">{{ a.name }}</span>
+          <span class="tag" [class.savings]="a.kind === 'savings'">{{ kindLabel(a) }}</span>
+        </button>
+      }
+      @if (closedAccounts().length > 0) {
+        <div class="sep"></div>
+        <div class="group-title">Clôturés</div>
+        @for (a of closedAccounts(); track a.id) {
+          <button
+            type="button"
+            role="option"
+            class="option closed"
+            [class.selected]="!overview() && a.id === current()?.id"
+            [attr.aria-selected]="!overview() && a.id === current()?.id"
+            (click)="choose(a)"
+          >
+            <span class="o-name">{{ a.name }}</span>
+            <span class="tag">Clôturé</span>
+          </button>
+        }
+      }
+      <div class="sep"></div>
+      <button type="button" class="option new" (click)="create()">
+        <app-icon name="plus" />
+        <span>Nouveau compte</span>
+      </button>
+    </div>
+  }
+</div>

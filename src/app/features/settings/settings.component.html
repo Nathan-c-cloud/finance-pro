@@ -4,4 +4,64 @@
   <button class="ghost" (click)="logout()">Se déconnecter</button>
 </section>
 
+<section class="panel">
+  <div class="panel-header">
+    <h3>Mes comptes bancaires</h3>
+    <button class="primary" type="button" (click)="newAccount()">Nouveau compte</button>
+  </div>
+  <p class="muted">
+    Chaque compte a ses propres mois, ses dépenses fixes et son solde. Change de compte avec le sélecteur en haut de la page.
+    Le solde de départ d'un compte se règle sur la page Mois, dans le premier mois du compte.
+  </p>
+  <ul class="accounts">
+    @for (a of activeAccounts(); track a.id) {
+      <li [class.current]="a.id === data.currentAccountId()">
+        <div class="a-main">
+          <strong>{{ a.name }}</strong>
+          <span class="a-meta">
+            {{ kindLabel(a) }}
+            @if (a.id === data.currentAccountId()) {
+              <span class="shown">Affiché</span>
+            }
+          </span>
+        </div>
+        <div class="a-actions">
+          <button type="button" (click)="editAccount(a)">Modifier</button>
+          <button type="button" (click)="closeAccount(a)">Clôturer</button>
+        </div>
+      </li>
+    }
+  </ul>
+
+  @if (closedAccounts().length > 0) {
+    <h4 class="closed-title">Comptes clôturés</h4>
+    <p class="muted">
+      Ils ne comptent plus dans le total de tes comptes, mais leur historique reste consultable avec le sélecteur de comptes.
+    </p>
+    <ul class="accounts">
+      @for (a of closedAccounts(); track a.id) {
+        <li class="closed" [class.current]="a.id === data.currentAccountId()">
+          <div class="a-main">
+            <strong>{{ a.name }}</strong>
+            <span class="a-meta">
+              {{ kindLabel(a) }}, clôturé le {{ formatDateFr(a.closed_at) }}
+              @if (a.id === data.currentAccountId()) {
+                <span class="shown">Affiché</span>
+              }
+            </span>
+          </div>
+          <div class="a-actions">
+            <button type="button" (click)="editAccount(a)">Modifier</button>
+            <button type="button" (click)="reopenAccount(a)">Rouvrir</button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (accountError()) {
+    <p class="error">{{ accountError() }}</p>
+  }
+</section>
+
 <app-excel-exchange />

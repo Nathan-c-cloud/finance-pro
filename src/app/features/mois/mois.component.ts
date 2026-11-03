@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { Transaction, TxType } from '../../core/models/models';
 import { formatEUR, formatPercent } from '../../core/services/format';
-import { addMonths, gapClues, isLateIncome, pendingOperations, toMonthDateString } from '../../core/services/calc';
+import { addMonths, gapClues, isLateIncome, isTransfer, pendingOperations, toMonthDateString } from '../../core/services/calc';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { compareIsoDatesNullLast, formatDateFr } from '../../core/services/date-fr';
 import { DateFieldComponent } from '../../shared/date-field/date-field.component';
@@ -67,6 +67,21 @@ export class MoisComponent {
   formatPercent = formatPercent;
 
   form = signal<NewTxForm>(emptyForm('variable'));
+  /** Le formulaire d'ajout saisit un virement vers un autre compte plutôt qu'une transaction ordinaire. */
+  transferMode = signal(false);
+  transferTo = signal<string | null>(null);
+  isTransfer = isTransfer;
+  /** Comptes vers lesquels on peut virer : les autres comptes actifs. */
+  /** Date de clôture du compte affiché, ou null s'il est actif : un compte clôturé se consulte, on n'y ajoute plus rien. */
+  closedOn = computed(() => {
+    const a = this.data.currentAccount();
+    return a?.status === 'closed' ? (a.closed_at ?? '') : null;
+  });
+  readonly formatDateFr = formatDateFr;
+
+  otherAccounts = computed(() =>
+    this.data.accounts().filter((a) => a.status === 'active' && a.id !== this.data.currentAccountId())
+  );
   saving = signal(false);
   error = signal<string | null>(null);
   txError = signal<string | null>(null);
@@ -325,7 +340,7 @@ export class MoisComponent {
         {
           value: 'move',
           label: `Les reporter dans ${nextLabel}`,
-          hint: 'Elles quittent le mois précédent et reviennent dans le suivant, où tu pourras les dater ou les cocher.',
+          hint: 'Elles quittent le mois précédent et reviennent dans le suivant, au même jour du mois (05/11 devient 05/12). Un virement suit aussi sur l\'autre compte.',
         },
         {
           value: 'delete',
@@ -387,7 +402,10 @@ export class MoisComponent {
     this.fixedInfo.set(null);
     this.fixedError.set(null);
     try {
-      const { added, alreadyThere, active } = await this.data.addFixedExpensesToMonth(cm.id);
+      const { added, alreadyThere, active, failed } = await this.data.addFixedExpensesToMonth(cm.id);
+      if (failed.length > 0) {
+        this.fixedError.set(`${failed.length} virement(s) fixe(s) non créé(s) : ${failed.join(' ; ')}`);
+      }
       // Lignes déjà dans le mois dont le jour de prélèvement a changé depuis : on propose de remettre leur date à jour.
       const changes = this.data.fixedDateChanges(cm.id);
       let dated = 0;
@@ -409,7 +427,7 @@ export class MoisComponent {
       if (active === 0) {
         this.fixedInfo.set('Aucune dépense fixe active dans le référentiel.');
       } else if (added === 0) {
-        this.fixedInfo.set(['Toutes les dépenses fixes actives sont déjà dans ce mois.', datedNote].filter(Boolean).join(' '));
+        if (failed.length === 0) this.fixedInfo.set(['Toutes les dépenses fixes actives sont déjà dans ce mois.', datedNote].filter(Boolean).join(' '));
       } else {
         const skipped = alreadyThere > 0 ? `, ${alreadyThere} déjà présente(s) non recopiée(s)` : '';
         this.fixedInfo.set([`${added} dépense(s) fixe(s) ajoutée(s)${skipped}.`, datedNote].filter(Boolean).join(' '));
@@ -600,6 +618,10 @@ export class MoisComponent {
     const cm = this.data.currentMonth();
     const f = this.form();
     if (!cm) return;
+    if (this.transferMode()) {
+      await this.addTransfer(cm.id, f);
+      return;
+    }
     if (!f.name.trim() || f.amount === null || f.amount === undefined) {
       this.txError.set('Merci de renseigner au moins le nom et le montant.');
       return;
@@ -626,6 +648,58 @@ export class MoisComponent {
     }
   }
 
+  /** Liste « Type » du formulaire : les trois types de transaction, plus le virement vers un autre compte. */
+  onFormTypeChange(value: string) {
+    this.txError.set(null);
+    if (value === 'transfer') {
+      this.transferMode.set(true);
+      this.transferTo.set(this.otherAccounts()[0]?.id ?? null);
+      return;
+    }
+    this.transferMode.set(false);
+    this.updateFormField('type', value as TxType);
+  }
+
+  private async addTransfer(monthId: string, f: NewTxForm) {
+    const to = this.transferTo();
+    if (!to || f.amount === null || f.amount === undefined || !f.tx_date) {
+      this.txError.set('Un virement demande un compte de destination, un montant et une date.');
+      return;
+    }
+    if (!(Math.abs(f.amount) > 0)) {
+      this.txError.set('Le montant du virement doit être supérieur à zéro.');
+      return;
+    }
+    this.saving.set(true);
+    this.txError.set(null);
+    try {
+      await this.data.createTransfer({
+        fromMonthId: monthId,
+        toAccountId: to,
+        amount: Math.abs(f.amount),
+        date: f.tx_date,
+        name: f.name,
+        detail: f.detail,
+      });
+      // On reste en mode virement (on en enchaîne souvent plusieurs), le formulaire est vidé.
+      this.form.set(emptyForm(f.type));
+    } catch (e: any) {
+      this.txError.set(e?.message ?? "Erreur lors du virement.");
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  /** Nom du compte "en face" d'un virement. */
+  peerAccountName(t: Transaction): string {
+    return this.data.accounts().find((a) => a.id === t.transfer_account_id)?.name ?? 'autre compte';
+  }
+
+  /** Un virement est fait dès que sa date est passée (même règle des deux côtés). */
+  transferDone(t: Transaction): boolean {
+    return !!t.tx_date && new Date(t.tx_date + 'T00:00:00') <= new Date();
+  }
+
   updateFormField<K extends keyof NewTxForm>(key: K, value: NewTxForm[K]) {
     this.form.update((f) => ({ ...f, [key]: value }));
   }
@@ -636,6 +710,11 @@ export class MoisComponent {
   }
 
   async updateTxDate(id: string, value: string) {
+    const t = this.data.transactions().find((x) => x.id === id);
+    if (t && isTransfer(t) && !value) {
+      this.txError.set('Un virement doit avoir une date.');
+      return;
+    }
     await this.data.updateTransaction(id, { tx_date: value || null });
   }
 
@@ -658,9 +737,12 @@ export class MoisComponent {
   async removeTx(id: string) {
     const t = this.data.transactions().find((x) => x.id === id);
     const label = t ? `« ${t.name} » (${formatEUR(t.amount)})` : 'cette transaction';
+    const transfer = t && isTransfer(t);
     const ok = await this.dialog.confirm({
-      title: 'Supprimer cette transaction ?',
-      message: `${label} sera supprimée définitivement. Les soldes du mois et des mois suivants seront recalculés.`,
+      title: transfer ? 'Supprimer ce virement ?' : 'Supprimer cette transaction ?',
+      message: transfer
+        ? `${label} sera supprimé des deux comptes : ici et sur « ${this.peerAccountName(t)} ». Les soldes des deux comptes seront recalculés.`
+        : `${label} sera supprimée définitivement. Les soldes du mois et des mois suivants seront recalculés.`,
       confirmLabel: 'Supprimer',
       danger: true,
     });
@@ -706,5 +788,10 @@ export class MoisComponent {
 
   typeLabel(t: TxType): string {
     return t === 'fixed' ? 'Fixe' : t === 'variable' ? 'Variable' : 'Revenu';
+  }
+
+  /** Libellé de la colonne Type d'une ligne : « Virement » pour les deux moitiés d'un virement. */
+  rowTypeLabel(t: Transaction): string {
+    return isTransfer(t) ? 'Virement' : this.typeLabel(t.type);
   }
 }
