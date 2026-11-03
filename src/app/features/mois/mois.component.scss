@@ -492,29 +492,23 @@ button.recalibrate {
   color: var(--color-text-secondary);
 }
 
-/* Revenu et virement se repèrent par une pastille sur le type, pas par un fond de ligne :
-   les champs gardent le même aspect que sur les autres lignes. */
-.tx-row.income .tx-type,
-.tx-row.transfer .tx-type {
-  justify-self: start;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.2;
+/* Revenu et virement : la ligne est teintée comme une bande aux bouts bien arrondis. La bande déborde de la ligne
+   (marge négative égale à son rembourrage) : les champs restent alignés avec ceux des autres lignes. */
+.tx-row.income,
+.tx-row.transfer {
+  --band-x: 0.75rem;
+  --band-y: 0.18rem;
+  padding: var(--band-y) var(--band-x);
+  margin: calc(var(--band-y) * -1) calc(var(--band-x) * -1);
+  border-radius: 18px;
 }
 
-.tx-row.income .tx-type {
+.tx-row.income {
   background: var(--color-income-soft);
-  border-color: var(--color-income-border);
-  color: var(--color-income);
 }
 
-.tx-row.transfer .tx-type {
+.tx-row.transfer {
   background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
-  color: var(--color-primary);
 }
 
 /* Compte en face d'un virement : un champ en lecture seule, aligné comme les listes des autres lignes */
@@ -523,8 +517,9 @@ button.recalibrate {
   box-sizing: border-box;
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
   font-size: 0.9rem;
   line-height: 1.25;
   color: var(--color-text-secondary);
@@ -706,7 +701,9 @@ button.recalibrate {
     gap: 0.6rem;
   }
 
-  .tx-row {
+  .tx-row,
+  .tx-row.income,
+  .tx-row.transfer {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'type delete'
@@ -715,6 +712,7 @@ button.recalibrate {
       'date toggle';
     gap: 0.5rem;
     padding: 0.7rem;
+    margin: 0;
     border: 1px solid var(--color-border);
     border-radius: 14px;
   }
