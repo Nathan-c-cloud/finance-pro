@@ -395,7 +395,10 @@ export class MoisComponent {
     this.fixedInfo.set(null);
     this.fixedError.set(null);
     try {
-      const { added, alreadyThere, active } = await this.data.addFixedExpensesToMonth(cm.id);
+      const { added, alreadyThere, active, failed } = await this.data.addFixedExpensesToMonth(cm.id);
+      if (failed.length > 0) {
+        this.fixedError.set(`${failed.length} virement(s) fixe(s) non créé(s) : ${failed.join(' ; ')}`);
+      }
       // Lignes déjà dans le mois dont le jour de prélèvement a changé depuis : on propose de remettre leur date à jour.
       const changes = this.data.fixedDateChanges(cm.id);
       let dated = 0;
@@ -417,7 +420,7 @@ export class MoisComponent {
       if (active === 0) {
         this.fixedInfo.set('Aucune dépense fixe active dans le référentiel.');
       } else if (added === 0) {
-        this.fixedInfo.set(['Toutes les dépenses fixes actives sont déjà dans ce mois.', datedNote].filter(Boolean).join(' '));
+        if (failed.length === 0) this.fixedInfo.set(['Toutes les dépenses fixes actives sont déjà dans ce mois.', datedNote].filter(Boolean).join(' '));
       } else {
         const skipped = alreadyThere > 0 ? `, ${alreadyThere} déjà présente(s) non recopiée(s)` : '';
         this.fixedInfo.set([`${added} dépense(s) fixe(s) ajoutée(s)${skipped}.`, datedNote].filter(Boolean).join(' '));

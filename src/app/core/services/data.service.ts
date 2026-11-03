@@ -721,6 +721,8 @@ export class DataService {
     date: string;
     name?: string;
     detail?: string;
+    /** 'fixed' pour un virement issu d'une dépense fixe (la sortie compte alors comme dépense fixe). */
+    outType?: 'variable' | 'fixed';
   }): Promise<void> {
     const { data: transferId, error } = await this.supa.client.rpc('create_transfer', {
       p_from_month: input.fromMonthId,
@@ -729,6 +731,7 @@ export class DataService {
       p_date: input.date,
       p_name: input.name?.trim() || null,
       p_detail: input.detail?.trim() || null,
+      p_out_type: input.outType ?? 'variable',
     });
     if (error) throw error;
 
@@ -877,15 +880,20 @@ export class DataService {
    * - Sans doublon : une dépense fixe déjà présente dans le mois (même nom, sans tenir compte
    *   des majuscules, des accents ni des espaces autour) n'est pas recopiée.
    */
-  async addFixedExpensesToMonth(monthId: string): Promise<{ added: number; alreadyThere: number; active: number }> {
+  async addFixedExpensesToMonth(
+    monthId: string
+  ): Promise<{ added: number; alreadyThere: number; active: number; failed: string[] }> {
     const uid = this.supa.userId!;
     const month = this.months().find((m) => m.id === monthId);
     if (!month) throw new Error('Mois introuvable.');
 
     const { active, toAdd, alreadyThere } = this.planFixedExpenses(monthId);
+    const plain = toAdd.filter((f) => !f.transfer_account_id);
+    const transfers = toAdd.filter((f) => !!f.transfer_account_id);
+    let added = 0;
 
-    if (toAdd.length > 0) {
-      const rows = toAdd.map((f) => ({
+    if (plain.length > 0) {
+      const rows = plain.map((f) => ({
         user_id: uid,
         month_id: monthId,
         type: 'fixed' as const,
@@ -900,9 +908,35 @@ export class DataService {
       const { data: inserted, error } = await this.supa.client.from('transactions').insert(rows).select();
       if (error) throw error;
       this.allTransactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
+      added += plain.length;
     }
 
-    return { added: toAdd.length, alreadyThere, active: active.length };
+    // Une dépense fixe qui est un virement crée la sortie ici ET l'entrée sur le compte de destination.
+    // Si l'une échoue (compte clôturé, destination qui démarre plus tard...), les autres continuent : on rend les erreurs.
+    const failed: string[] = [];
+    for (const f of transfers) {
+      const date = buildDate(month.month_date, f.payment_day);
+      if (!date) {
+        failed.push(`${f.name} : il manque le jour de prélèvement du virement.`);
+        continue;
+      }
+      try {
+        await this.createTransfer({
+          fromMonthId: monthId,
+          toAccountId: f.transfer_account_id as string,
+          amount: monthlyShare(f.amount, f.frequency),
+          date,
+          name: f.name,
+          detail: fixedExpenseDetail(f.amount, f.frequency),
+          outType: 'fixed',
+        });
+        added++;
+      } catch (e: any) {
+        failed.push(`${f.name} : ${e?.message ?? 'virement impossible.'}`);
+      }
+    }
+
+    return { added, alreadyThere, active: active.length, failed };
   }
 
   /** Ce que "Ajouter les dépenses fixes" ferait pour ce mois : actives du référentiel, à ajouter, déjà présentes. */

@@ -57,6 +57,8 @@ export interface FixedExpense {
   frequency: Frequency;
   /** Jour du mois (1 à 31) où la dépense est prélevée ; null = pas de date (transaction ajoutée sans date). */
   payment_day: number | null;
+  /** Compte de destination : la dépense fixe est alors un virement vers ce compte (jour de prélèvement obligatoire). */
+  transfer_account_id?: string | null;
   active: boolean;
   created_at?: string;
 }
