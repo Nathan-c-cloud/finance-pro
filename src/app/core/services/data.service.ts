@@ -1,6 +1,8 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { SupabaseService } from './supabase.service';
 import {
+  Account,
+  AccountKind,
   Category,
   FixedExpense,
   MonthBudget,
@@ -9,6 +11,15 @@ import {
   Transaction,
   UserSettings,
 } from '../models/models';
+import {
+  accountNameError,
+  budgetsOfMonths,
+  fixedExpensesOfAccount,
+  monthsOfAccount,
+  pickCurrentAccount,
+  pickMonthToShow,
+  transactionsOfMonths,
+} from './account-scope';
 import type { ImportPlan } from '../excel/excel-import';
 import { fixedExpenseDetail, monthlyShare } from './fixed-expense';
 import { compareIsoDatesNullLast, daysInMonth } from './date-fr';
@@ -33,11 +44,26 @@ export class DataService {
   readonly error = signal<string | null>(null);
 
   readonly categories = signal<Category[]>([]);
-  readonly fixedExpenses = signal<FixedExpense[]>([]);
-  readonly months = signal<MonthRow[]>([]);
-  readonly transactions = signal<Transaction[]>([]);
   readonly settings = signal<UserSettings | null>(null);
-  readonly monthBudgets = signal<MonthBudget[]>([]);
+
+  /** Tous les comptes de l'utilisateur. */
+  readonly accounts = signal<Account[]>([]);
+  /** Compte affiché. Mémorisé dans le navigateur pour le retrouver à la prochaine visite. */
+  readonly currentAccountId = signal<string | null>(null);
+  readonly currentAccount = computed(() => this.accounts().find((a) => a.id === this.currentAccountId()) ?? null);
+
+  // Données de TOUS les comptes, telles que chargées. Seul ce service les modifie.
+  readonly allMonths = signal<MonthRow[]>([]);
+  readonly allFixedExpenses = signal<FixedExpense[]>([]);
+  readonly allTransactions = signal<Transaction[]>([]);
+  readonly allMonthBudgets = signal<MonthBudget[]>([]);
+
+  // Données du compte affiché. Toute l'application lit ces signaux (mêmes noms qu'avant les comptes) :
+  // chaque compte a donc sa propre chronologie, ses dépenses fixes, ses transactions et ses budgets.
+  readonly months = computed(() => monthsOfAccount(this.allMonths(), this.currentAccountId()));
+  readonly fixedExpenses = computed(() => fixedExpensesOfAccount(this.allFixedExpenses(), this.currentAccountId()));
+  readonly transactions = computed(() => transactionsOfMonths(this.allTransactions(), this.months()));
+  readonly monthBudgets = computed(() => budgetsOfMonths(this.allMonthBudgets(), this.months()));
   /** Faux tant que le script supabase/budgets.sql n'a pas été exécuté : les budgets sont alors masqués et non enregistrables. */
   readonly budgetsAvailable = signal(true);
 
@@ -66,9 +92,9 @@ export class DataService {
   readonly allSummaries = computed<MonthSummary[]>(() => {
     const months = this.sortedMonths();
     const cats = this.categories();
-    const settings = this.settings();
     const summaries: MonthSummary[] = [];
-    let carry = settings?.initial_balance ?? 0;
+    // Le solde de départ appartient au compte (chaque compte repart de son propre solde).
+    let carry = this.currentAccount()?.opening_balance ?? 0;
     months.forEach((m, i) => {
       const tx = this.transactions().filter((t) => t.month_id === m.id);
       const own = m.starting_balance_override;
@@ -166,11 +192,13 @@ export class DataService {
 
   private resetLocal() {
     this.categories.set([]);
-    this.fixedExpenses.set([]);
-    this.months.set([]);
-    this.transactions.set([]);
+    this.allFixedExpenses.set([]);
+    this.allMonths.set([]);
+    this.allTransactions.set([]);
     this.settings.set(null);
-    this.monthBudgets.set([]);
+    this.allMonthBudgets.set([]);
+    this.accounts.set([]);
+    this.currentAccountId.set(null);
     this.currentMonth.set(null);
     this.loading.set(false);
   }
@@ -182,15 +210,21 @@ export class DataService {
       const uid = this.supa.userId;
       if (!uid) return;
 
-      const [catsRes, fixedRes, monthsRes, txRes, settingsRes, budgetsRes] = await Promise.all([
+      const [catsRes, fixedRes, monthsRes, txRes, settingsRes, budgetsRes, accountsRes] = await Promise.all([
         this.supa.client.from('categories').select('*').order('sort_order'),
         this.supa.client.from('fixed_expenses').select('*').order('created_at'),
         this.supa.client.from('months').select('*').order('month_date'),
         this.supa.client.from('transactions').select('*'),
         this.supa.client.from('user_settings').select('*').maybeSingle(),
         this.supa.client.from('month_budgets').select('*'),
+        this.supa.client.from('accounts').select('*').order('created_at'),
       ]);
 
+      if (accountsRes.error) {
+        throw new Error(
+          `Comptes indisponibles (${accountsRes.error.message}). Le script supabase/migrations/2026-11-03_accounts_02_migration.sql a-t-il été exécuté ?`
+        );
+      }
       if (catsRes.error) throw catsRes.error;
       if (fixedRes.error) throw fixedRes.error;
       if (monthsRes.error) throw monthsRes.error;
@@ -201,11 +235,11 @@ export class DataService {
         cats = await this.seedDefaultCategories(uid);
       }
       this.categories.set(cats);
-      this.fixedExpenses.set((fixedRes.data ?? []) as FixedExpense[]);
-      this.transactions.set((txRes.data ?? []) as Transaction[]);
+      this.allFixedExpenses.set((fixedRes.data ?? []) as FixedExpense[]);
+      this.allTransactions.set((txRes.data ?? []) as Transaction[]);
       // Budgets : si la table n'existe pas encore (script SQL pas lancé), on continue sans eux au lieu de bloquer l'app.
       this.budgetsAvailable.set(!budgetsRes.error);
-      this.monthBudgets.set(budgetsRes.error ? [] : ((budgetsRes.data ?? []) as MonthBudget[]));
+      this.allMonthBudgets.set(budgetsRes.error ? [] : ((budgetsRes.data ?? []) as MonthBudget[]));
       if (budgetsRes.error) console.warn('Budgets indisponibles :', budgetsRes.error.message);
 
       let settings = settingsRes.data as UserSettings | null;
@@ -220,15 +254,27 @@ export class DataService {
       }
       this.settings.set(settings);
 
-      let months = (monthsRes.data ?? []) as MonthRow[];
-      if (months.length === 0) {
-        const created = await this.createFirstMonth(uid);
-        months = [created];
+      // Comptes : un nouvel utilisateur n'en a pas encore, on lui en crée un. Le compte affiché est celui
+      // mémorisé dans le navigateur s'il existe encore, sinon le plus ancien compte actif.
+      let accounts = (accountsRes.data ?? []) as Account[];
+      if (accounts.length === 0) {
+        accounts = [
+          await this.insertAccount(uid, {
+            name: 'Compte principal',
+            kind: 'checking',
+            openingBalance: 0,
+            startMonth: toMonthDateString(new Date()),
+          }),
+        ];
       }
-      this.months.set(months);
+      this.accounts.set(accounts);
+      const account = pickCurrentAccount(accounts, DataService.loadStoredAccountId())!;
+      this.currentAccountId.set(account.id);
+      DataService.storeAccountId(account.id);
 
-      const current = months.find((m) => m.status === 'current') ?? months[months.length - 1];
-      this.currentMonth.set(current);
+      this.allMonths.set((monthsRes.data ?? []) as MonthRow[]);
+      if (this.months().length === 0) await this.createFirstMonth(account);
+      this.currentMonth.set(pickMonthToShow(this.months()));
     } catch (e: any) {
       this.error.set(e?.message ?? 'Erreur de chargement');
       console.error(e);
@@ -244,16 +290,103 @@ export class DataService {
     return (data ?? []) as Category[];
   }
 
-  private async createFirstMonth(uid: string): Promise<MonthRow> {
-    const now = new Date();
-    const monthDate = toMonthDateString(now);
+  /** Premier mois d'un compte : son mois de départ (sinon le mois en cours). Le mois est vide, le solde de départ est celui du compte. */
+  private async createFirstMonth(account: Account): Promise<MonthRow> {
+    const monthDate = account.opening_date ?? toMonthDateString(new Date());
     const { data, error } = await this.supa.client
       .from('months')
-      .insert({ user_id: uid, month_date: monthDate, status: 'current' })
+      .insert({ user_id: account.user_id, account_id: account.id, month_date: monthDate, status: 'current' })
       .select()
       .single();
     if (error) throw error;
-    return data as MonthRow;
+    const month = data as MonthRow;
+    this.allMonths.update((list) => [...list, month]);
+    return month;
+  }
+
+  // ------------------------------------------------------------
+  // Comptes
+  // ------------------------------------------------------------
+  private static readonly ACCOUNT_STORAGE_KEY = 'finance-pro-current-account';
+
+  private static loadStoredAccountId(): string | null {
+    try {
+      return localStorage.getItem(DataService.ACCOUNT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private static storeAccountId(id: string) {
+    try {
+      localStorage.setItem(DataService.ACCOUNT_STORAGE_KEY, id);
+    } catch {
+      /* navigateur sans stockage : le compte affiché ne sera simplement pas mémorisé */
+    }
+  }
+
+  private async insertAccount(
+    uid: string,
+    input: { name: string; kind: AccountKind; openingBalance: number; startMonth: string }
+  ): Promise<Account> {
+    const { data, error } = await this.supa.client
+      .from('accounts')
+      .insert({
+        user_id: uid,
+        name: input.name,
+        kind: input.kind,
+        opening_balance: input.openingBalance,
+        opening_date: input.startMonth,
+      })
+      .select()
+      .single();
+    if (error) throw error.code === '23505' ? new Error('Un compte porte déjà ce nom.') : error;
+    return data as Account;
+  }
+
+  /**
+   * Crée un compte avec son premier mois (vide) et l'affiche.
+   * `startMonth` : mois de départ du suivi ('YYYY-MM-01'), `openingBalance` : solde du compte à ce moment là.
+   */
+  async createAccount(input: {
+    name: string;
+    kind: AccountKind;
+    openingBalance: number;
+    startMonth: string;
+  }): Promise<Account> {
+    const uid = this.supa.userId!;
+    const name = input.name.trim();
+    const problem = accountNameError(name, this.accounts());
+    if (problem) throw new Error(problem);
+    const account = await this.insertAccount(uid, { ...input, name });
+    this.accounts.update((list) => [...list, account]);
+    await this.createFirstMonth(account);
+    await this.selectAccount(account.id);
+    return account;
+  }
+
+  /** Renomme un compte ou change son type. Le type est une étiquette : l'historique est recalculé avec le nouveau type. */
+  async updateAccount(id: string, patch: { name?: string; kind?: AccountKind }) {
+    const clean: { name?: string; kind?: AccountKind } = { ...patch };
+    if (clean.name !== undefined) {
+      clean.name = clean.name.trim();
+      const problem = accountNameError(clean.name, this.accounts(), id);
+      if (problem) throw new Error(problem);
+    }
+    const { error } = await this.supa.client.from('accounts').update(clean).eq('id', id);
+    if (error) throw error.code === '23505' ? new Error('Un compte porte déjà ce nom.') : error;
+    this.accounts.update((list) => list.map((a) => (a.id === id ? { ...a, ...clean } : a)));
+  }
+
+  /** Affiche un autre compte : ses mois, ses dépenses fixes et son solde remplacent ceux du compte précédent. */
+  async selectAccount(id: string) {
+    const account = this.accounts().find((a) => a.id === id);
+    if (!account || account.id === this.currentAccountId()) return;
+    this.currentAccountId.set(id);
+    DataService.storeAccountId(id);
+    // Un compte sans aucun mois (cas rare) reçoit son premier mois pour ne jamais afficher une page vide.
+    if (this.months().length === 0) await this.createFirstMonth(account);
+    this.currentMonth.set(pickMonthToShow(this.months()));
   }
 
   // ------------------------------------------------------------
@@ -283,9 +416,9 @@ export class DataService {
     this.categories.update((list) => list.filter((c) => c.id !== id));
     // La base met "sans catégorie" sur les opérations concernées et supprime les budgets de la catégorie : on fait pareil ici,
     // sinon l'écran garderait l'ancienne catégorie jusqu'au prochain rechargement.
-    this.transactions.update((list) => list.map((t) => (t.category_id === id ? { ...t, category_id: null } : t)));
-    this.fixedExpenses.update((list) => list.map((f) => (f.category_id === id ? { ...f, category_id: null } : f)));
-    this.monthBudgets.update((list) => list.filter((b) => b.category_id !== id));
+    this.allTransactions.update((list) => list.map((t) => (t.category_id === id ? { ...t, category_id: null } : t)));
+    this.allFixedExpenses.update((list) => list.map((f) => (f.category_id === id ? { ...f, category_id: null } : f)));
+    this.allMonthBudgets.update((list) => list.filter((b) => b.category_id !== id));
   }
 
   /** Archive ou restaure une catégorie. Archivée, elle disparaît des listes de saisie mais reste dans l'historique. */
@@ -423,7 +556,7 @@ export class DataService {
     }));
     const { data, error } = await this.supa.client.from('month_budgets').insert(rows).select();
     if (error) throw error;
-    this.monthBudgets.update((list) => [...list, ...((data ?? []) as MonthBudget[])]);
+    this.allMonthBudgets.update((list) => [...list, ...((data ?? []) as MonthBudget[])]);
     return rows.length;
   }
 
@@ -434,14 +567,14 @@ export class DataService {
       if (!existing) return;
       const { error } = await this.supa.client.from('month_budgets').delete().eq('id', existing.id);
       if (error) throw error;
-      this.monthBudgets.update((list) => list.filter((b) => b.id !== existing.id));
+      this.allMonthBudgets.update((list) => list.filter((b) => b.id !== existing.id));
       return;
     }
     if (existing) {
       const patch = { amount, include_fixed: includeFixed };
       const { error } = await this.supa.client.from('month_budgets').update(patch).eq('id', existing.id);
       if (error) throw error;
-      this.monthBudgets.update((list) => list.map((b) => (b.id === existing.id ? { ...b, ...patch } : b)));
+      this.allMonthBudgets.update((list) => list.map((b) => (b.id === existing.id ? { ...b, ...patch } : b)));
       return;
     }
     const uid = this.supa.userId!;
@@ -451,33 +584,35 @@ export class DataService {
       .select()
       .single();
     if (error) throw error;
-    this.monthBudgets.update((list) => [...list, data as MonthBudget]);
+    this.allMonthBudgets.update((list) => [...list, data as MonthBudget]);
   }
 
   // ------------------------------------------------------------
   // Dépenses fixes (référentiel)
   // ------------------------------------------------------------
-  async addFixedExpense(fe: Omit<FixedExpense, 'id' | 'user_id' | 'created_at'>) {
+  async addFixedExpense(fe: Omit<FixedExpense, 'id' | 'user_id' | 'account_id' | 'created_at'>) {
     const uid = this.supa.userId!;
+    const accountId = this.currentAccountId();
+    if (!accountId) throw new Error('Aucun compte sélectionné.');
     const { data, error } = await this.supa.client
       .from('fixed_expenses')
-      .insert({ ...fe, user_id: uid })
+      .insert({ ...fe, user_id: uid, account_id: accountId })
       .select()
       .single();
     if (error) throw error;
-    this.fixedExpenses.update((list) => [...list, data as FixedExpense]);
+    this.allFixedExpenses.update((list) => [...list, data as FixedExpense]);
   }
 
   async updateFixedExpense(id: string, patch: Partial<FixedExpense>) {
     const { error } = await this.supa.client.from('fixed_expenses').update(patch).eq('id', id);
     if (error) throw error;
-    this.fixedExpenses.update((list) => list.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    this.allFixedExpenses.update((list) => list.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
   async deleteFixedExpense(id: string) {
     const { error } = await this.supa.client.from('fixed_expenses').delete().eq('id', id);
     if (error) throw error;
-    this.fixedExpenses.update((list) => list.filter((f) => f.id !== id));
+    this.allFixedExpenses.update((list) => list.filter((f) => f.id !== id));
   }
 
   // ------------------------------------------------------------
@@ -491,19 +626,19 @@ export class DataService {
       .select()
       .single();
     if (error) throw error;
-    this.transactions.update((list) => [...list, data as Transaction]);
+    this.allTransactions.update((list) => [...list, data as Transaction]);
   }
 
   async updateTransaction(id: string, patch: Partial<Transaction>) {
     const { error } = await this.supa.client.from('transactions').update(patch).eq('id', id);
     if (error) throw error;
-    this.transactions.update((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    this.allTransactions.update((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }
 
   async deleteTransaction(id: string) {
     const { error } = await this.supa.client.from('transactions').delete().eq('id', id);
     if (error) throw error;
-    this.transactions.update((list) => list.filter((t) => t.id !== id));
+    this.allTransactions.update((list) => list.filter((t) => t.id !== id));
   }
 
   /** Supprime plusieurs transactions en une requête. */
@@ -512,7 +647,7 @@ export class DataService {
     const { error } = await this.supa.client.from('transactions').delete().in('id', ids);
     if (error) throw error;
     const gone = new Set(ids);
-    this.transactions.update((list) => list.filter((t) => !gone.has(t.id)));
+    this.allTransactions.update((list) => list.filter((t) => !gone.has(t.id)));
   }
 
   /** Déplace plusieurs transactions vers un autre mois (leur date, montant et catégorie ne changent pas). */
@@ -521,20 +656,19 @@ export class DataService {
     const { error } = await this.supa.client.from('transactions').update({ month_id: monthId }).in('id', ids);
     if (error) throw error;
     const moved = new Set(ids);
-    this.transactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: monthId } : t)));
+    this.allTransactions.update((list) => list.map((t) => (moved.has(t.id) ? { ...t, month_id: monthId } : t)));
   }
 
   // ------------------------------------------------------------
   // Réglages
   // ------------------------------------------------------------
+  /** Solde de départ du compte affiché (le solde de début de son premier mois). */
   async updateInitialBalance(value: number) {
-    const uid = this.supa.userId!;
-    const { error } = await this.supa.client
-      .from('user_settings')
-      .update({ initial_balance: value, updated_at: new Date().toISOString() })
-      .eq('user_id', uid);
+    const account = this.currentAccount();
+    if (!account) throw new Error('Aucun compte sélectionné.');
+    const { error } = await this.supa.client.from('accounts').update({ opening_balance: value }).eq('id', account.id);
     if (error) throw error;
-    this.settings.update((s) => (s ? { ...s, initial_balance: value } : s));
+    this.accounts.update((list) => list.map((a) => (a.id === account.id ? { ...a, opening_balance: value } : a)));
   }
 
   // ------------------------------------------------------------
@@ -548,7 +682,7 @@ export class DataService {
   async setMonthStatus(id: string, status: 'current' | 'closed') {
     const { error } = await this.supa.client.from('months').update({ status }).eq('id', id);
     if (error) throw error;
-    this.months.update((list) => list.map((m) => (m.id === id ? { ...m, status } : m)));
+    this.allMonths.update((list) => list.map((m) => (m.id === id ? { ...m, status } : m)));
     const cm = this.currentMonth();
     if (cm?.id === id) this.currentMonth.set({ ...cm, status });
   }
@@ -559,7 +693,7 @@ export class DataService {
       .update({ starting_balance_override: value })
       .eq('id', id);
     if (error) throw error;
-    this.months.update((list) =>
+    this.allMonths.update((list) =>
       list.map((m) => (m.id === id ? { ...m, starting_balance_override: value } : m))
     );
     const cm = this.currentMonth();
@@ -588,7 +722,7 @@ export class DataService {
       .update({ real_balance_check: value })
       .eq('id', id);
     if (error) throw error;
-    this.months.update((list) =>
+    this.allMonths.update((list) =>
       list.map((m) => (m.id === id ? { ...m, real_balance_check: value } : m))
     );
     const cm = this.currentMonth();
@@ -605,6 +739,8 @@ export class DataService {
    */
   async generateNextMonth(): Promise<{ month: MonthRow; created: boolean }> {
     const uid = this.supa.userId!;
+    const accountId = this.currentAccountId();
+    if (!accountId) throw new Error('Aucun compte sélectionné.');
     const cm = this.currentMonth();
     const last = cm ?? this.sortedMonths()[this.sortedMonths().length - 1];
     if (!last) throw new Error('Aucun mois existant pour partir.');
@@ -623,12 +759,12 @@ export class DataService {
 
     const { data: newMonth, error: monthErr } = await this.supa.client
       .from('months')
-      .insert({ user_id: uid, month_date: nextDate, status: 'current' })
+      .insert({ user_id: uid, account_id: accountId, month_date: nextDate, status: 'current' })
       .select()
       .single();
     if (monthErr) throw monthErr;
     const month = newMonth as MonthRow;
-    this.months.update((list) => [...list, month]);
+    this.allMonths.update((list) => [...list, month]);
     this.currentMonth.set(month);
     return { month, created: true };
   }
@@ -662,7 +798,7 @@ export class DataService {
       }));
       const { data: inserted, error } = await this.supa.client.from('transactions').insert(rows).select();
       if (error) throw error;
-      this.transactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
+      this.allTransactions.update((list) => [...list, ...((inserted ?? []) as Transaction[])]);
     }
 
     return { added: toAdd.length, alreadyThere, active: active.length };
@@ -736,6 +872,8 @@ export class DataService {
     opts: { includeDoubtful: ReadonlySet<string>; deleteMissing: boolean }
   ): Promise<ImportResult> {
     const uid = this.supa.userId!;
+    const accountId = this.currentAccountId();
+    if (!accountId) throw new Error('Aucun compte sélectionné.');
     const db = this.supa.client;
     const ops = plan.ops;
     const doubtful = new Set(plan.lines.filter((l) => l.action === 'doubtful').map((l) => l.id));
@@ -766,6 +904,7 @@ export class DataService {
       if (ops.createMonths.length > 0) {
         const rows = ops.createMonths.map((m) => ({
           user_id: uid,
+          account_id: accountId,
           month_date: m.key + '-01',
           status: m.status,
           starting_balance_override: m.override,
@@ -773,7 +912,7 @@ export class DataService {
         }));
         const { data, error } = await db.from('months').insert(rows).select();
         if (error) throw error;
-        this.months.update((list) => [...list, ...((data ?? []) as MonthRow[])]);
+        this.allMonths.update((list) => [...list, ...((data ?? []) as MonthRow[])]);
         result.created += rows.length;
       }
       for (const u of ops.updateMonths) {
@@ -788,6 +927,7 @@ export class DataService {
       for (const part of chunk(newFixed, 200)) {
         const rows = part.map((o) => ({
           user_id: uid,
+          account_id: accountId,
           name: o.data.name,
           amount: o.data.amount,
           category_id: catId(o.data.categoryName),

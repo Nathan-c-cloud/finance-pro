@@ -1,0 +1,144 @@
+:host {
+  display: inline-block;
+  min-width: 0;
+}
+
+.switcher {
+  position: relative;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 190px;
+  height: 34px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.trigger:hover {
+  background: var(--color-hover);
+}
+
+.kind {
+  color: var(--color-primary);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  width: 1em;
+  height: 1em;
+  color: var(--color-text-secondary);
+}
+
+/* Liste déroulante des comptes */
+.list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(23, 32, 28, 0.16);
+}
+
+.option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.option:hover {
+  background: var(--color-hover);
+}
+
+.option.selected {
+  background: var(--color-primary-soft);
+  font-weight: 700;
+}
+
+.o-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  flex: none;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.tag.savings {
+  background: var(--color-savings-soft);
+  color: var(--color-savings);
+}
+
+.sep {
+  height: 1px;
+  margin: 0.3rem 0.2rem;
+  background: var(--color-border);
+}
+
+.option.new {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Petits écrans : on garde la place pour le sélecteur de mois et le menu */
+@media (max-width: 480px) {
+  .trigger {
+    max-width: 120px;
+    padding: 0 0.45rem;
+    font-size: 0.8rem;
+  }
+
+  .kind {
+    display: none;
+  }
+
+  /* La liste s'ouvre sur toute la largeur de la pilule du header (comme le menu burger), pour ne jamais sortir de l'écran. */
+  .switcher {
+    position: static;
+  }
+
+  .list {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    max-width: none;
+  }
+}

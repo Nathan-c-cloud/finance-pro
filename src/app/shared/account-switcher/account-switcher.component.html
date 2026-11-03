@@ -1,0 +1,37 @@
+<div class="switcher">
+  <button
+    class="trigger"
+    type="button"
+    aria-haspopup="listbox"
+    aria-label="Changer de compte"
+    [attr.aria-expanded]="open()"
+    (click)="toggle()"
+  >
+    <app-icon class="kind" [name]="isSavings() ? 'piggy-bank' : 'landmark'" />
+    <span class="name">{{ current()?.name ?? 'Compte' }}</span>
+    <app-icon class="caret" name="chevron-down" />
+  </button>
+
+  @if (open()) {
+    <div class="list" role="listbox" aria-label="Mes comptes">
+      @for (a of accounts(); track a.id) {
+        <button
+          type="button"
+          role="option"
+          class="option"
+          [class.selected]="a.id === current()?.id"
+          [attr.aria-selected]="a.id === current()?.id"
+          (click)="choose(a)"
+        >
+          <span class="o-name">{{ a.name }}</span>
+          <span class="tag" [class.savings]="a.kind === 'savings'">{{ kindLabel(a) }}</span>
+        </button>
+      }
+      <div class="sep"></div>
+      <button type="button" class="option new" (click)="create()">
+        <app-icon name="plus" />
+        <span>Nouveau compte</span>
+      </button>
+    </div>
+  }
+</div>

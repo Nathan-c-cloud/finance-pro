@@ -4,4 +4,31 @@
   <button class="ghost" (click)="logout()">Se déconnecter</button>
 </section>
 
+<section class="panel">
+  <div class="panel-header">
+    <h3>Mes comptes bancaires</h3>
+    <button class="primary" type="button" (click)="newAccount()">Nouveau compte</button>
+  </div>
+  <p class="muted">
+    Chaque compte a ses propres mois, ses dépenses fixes et son solde. Change de compte avec le sélecteur en haut de la page.
+    Le solde de départ d'un compte se règle sur la page Mois, dans le premier mois du compte.
+  </p>
+  <ul class="accounts">
+    @for (a of data.accounts(); track a.id) {
+      <li [class.current]="a.id === data.currentAccountId()">
+        <div class="a-main">
+          <strong>{{ a.name }}</strong>
+          <span class="a-meta">
+            {{ kindLabel(a) }}
+            @if (a.id === data.currentAccountId()) {
+              <span class="shown">Affiché</span>
+            }
+          </span>
+        </div>
+        <button type="button" (click)="editAccount(a)">Modifier</button>
+      </li>
+    }
+  </ul>
+</section>
+
 <app-excel-exchange />

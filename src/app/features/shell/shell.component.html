@@ -16,6 +16,11 @@
       </nav>
 
       <div class="right">
+        <app-account-switcher
+          [open]="open() === 'accounts'"
+          (openChange)="onAccountsOpenChange($event)"
+        />
+
         @if (showMonthPicker()) {
           <app-month-picker
             [months]="data.sortedMonths()"

@@ -4,14 +4,15 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 import { DataService } from '../../core/services/data.service';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { AccountSwitcherComponent } from '../../shared/account-switcher/account-switcher.component';
 import { MonthPickerComponent } from '../../shared/month-picker/month-picker.component';
 
-type OpenMenu = 'nav' | 'months' | 'account' | null;
+type OpenMenu = 'nav' | 'months' | 'accounts' | 'account' | null;
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MonthPickerComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MonthPickerComponent, AccountSwitcherComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -74,6 +75,12 @@ export class ShellComponent {
   onMonthsOpenChange(isOpen: boolean) {
     if (isOpen) this.open.set('months');
     else if (this.open() === 'months') this.open.set(null);
+  }
+
+  /** Un seul menu ouvert à la fois : la liste des comptes s'ouvre ou se ferme via le sélecteur de compte. */
+  onAccountsOpenChange(isOpen: boolean) {
+    if (isOpen) this.open.set('accounts');
+    else if (this.open() === 'accounts') this.open.set(null);
   }
 
   goToMonth(id: string) {

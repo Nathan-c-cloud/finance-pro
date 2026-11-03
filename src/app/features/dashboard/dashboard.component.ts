@@ -173,7 +173,12 @@ export class DashboardComponent {
     summaries: ReturnType<DataService['allSummaries']>,
     canvas: ElementRef<HTMLCanvasElement> | undefined
   ) {
-    if (!canvas) return;
+    if (!canvas) {
+      // Compte d'épargne : le graphique est masqué, on libère l'ancien.
+      this.rateChart?.destroy();
+      this.rateChart = undefined;
+      return;
+    }
     this.rateChart?.destroy();
     this.rateChart = new Chart(canvas.nativeElement, {
       type: 'line',

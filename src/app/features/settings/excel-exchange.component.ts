@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../../core/services/data.service';
+import { UserSettings } from '../../core/models/models';
 import { DialogService } from '../../shared/confirm-dialog/dialog.service';
 import { buildWorkbookBlob } from '../../core/excel/excel-export';
 import { ImportPlan, Issue, PlanLine, buildImportPlan, parseWorkbook } from '../../core/excel/excel-import';
@@ -54,6 +55,12 @@ export class ExcelExchangeComponent {
 
   constructor(private data: DataService) {}
 
+  /** Le solde initial comparé à l'import est celui du compte affiché, pas un réglage global. */
+  private accountSettings(): UserSettings | null {
+    const account = this.data.currentAccount();
+    return account ? { user_id: account.user_id, initial_balance: account.opening_balance } : null;
+  }
+
   async exportExcel() {
     this.exporting.set(true);
     this.exportError.set(null);
@@ -64,7 +71,7 @@ export class ExcelExchangeComponent {
         fixedExpenses: this.data.fixedExpenses(),
         months: this.data.sortedMonths(),
         transactions: this.data.transactions(),
-        initialBalance: this.data.settings()?.initial_balance ?? 0,
+        initialBalance: this.data.currentAccount()?.opening_balance ?? 0,
         summaries: this.data.allSummaries(),
         exportedAt: new Date(),
       });
@@ -73,7 +80,13 @@ export class ExcelExchangeComponent {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `suivi-budget-${stamp}.xlsx`;
+      const accountSlug = (this.data.currentAccount()?.name ?? 'compte')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+      a.download = `suivi-budget-${accountSlug || 'compte'}-${stamp}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -105,7 +118,7 @@ export class ExcelExchangeComponent {
           fixedExpenses: this.data.fixedExpenses(),
           months: this.data.sortedMonths(),
           transactions: this.data.transactions(),
-          settings: this.data.settings(),
+          settings: this.accountSettings(),
         })
       );
     } catch (e: any) {

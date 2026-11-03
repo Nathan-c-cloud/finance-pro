@@ -64,18 +64,20 @@
             </div>
             <span class="card-icon"><app-icon name="trending-up" /></span>
           </div>
-          <div class="card">
-            <div class="card-text">
-              <span class="label">Taux d'épargne</span>
-              <span class="value">{{ formatPercent(s.savingsRate) }}</span>
-              @if (s.savingsRate === null) {
-                <small class="rate-note">
-                  {{ s.income > 0 ? 'Épargne supérieure aux revenus du mois' : 'Aucun revenu saisi ce mois' }}
-                </small>
-              }
+          @if (data.currentAccount()?.kind !== 'savings') {
+            <div class="card">
+              <div class="card-text">
+                <span class="label">Taux d'épargne</span>
+                <span class="value">{{ formatPercent(s.savingsRate) }}</span>
+                @if (s.savingsRate === null) {
+                  <small class="rate-note">
+                    {{ s.income > 0 ? 'Épargne supérieure aux revenus du mois' : 'Aucun revenu saisi ce mois' }}
+                  </small>
+                }
+              </div>
+              <span class="card-icon"><app-icon name="chart-pie" /></span>
             </div>
-            <span class="card-icon"><app-icon name="chart-pie" /></span>
-          </div>
+          }
           <div class="card wide" [class.highlight]="!s.endingForced" [class.forced]="s.endingForced">
             <div class="card-text">
               <span class="label">
