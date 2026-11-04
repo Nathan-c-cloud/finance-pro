@@ -225,15 +225,16 @@
             </p>
           } @else {
             <app-budget-suggestions />
-            @if (data.budgetAllocation(); as a) {
+            @if (data.budgetWorstCase(); as w) {
               @if (data.currentBudgetRows().length > 0) {
-                <div class="alloc" [class.over]="a.left < 0">
-                  <span class="alloc-label">Reste à allouer</span>
-                  <strong class="alloc-value">{{ formatEUR(a.left) }}</strong>
+                <div class="alloc" [class.over]="w.worst < 0">
+                  <span class="alloc-label">Solde de fin de mois au pire</span>
+                  <strong class="alloc-value">{{ formatEUR(w.worst) }}</strong>
                   <small>
-                    Revenus {{ formatEUR(a.income) }}, moins épargne {{ formatEUR(a.savings) }}, moins budgets {{ formatEUR(a.total) }}.
-                    @if (a.left < 0) {
-                      Tu alloues plus que tes revenus du mois.
+                    Solde théorique de fin de mois ({{ formatEUR(w.end) }}) moins ce qu'il te reste à dépenser dans tes budgets
+                    ({{ formatEUR(w.remainingBudgets) }}). Ça suppose que tu utilises tout chaque budget, sans le dépasser.
+                    @if (w.worst < 0) {
+                      Tu pourrais finir le mois dans le négatif.
                     }
                   </small>
                 </div>

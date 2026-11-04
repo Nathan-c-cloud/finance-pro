@@ -576,12 +576,21 @@ export class DataService {
       .sort((a, b) => a.categoryName.localeCompare(b.categoryName, 'fr'));
   });
 
-  /** Reste à allouer : revenus du mois moins épargne moins budgets. Négatif = tu alloues plus que tes revenus. */
-  readonly budgetAllocation = computed(() => {
+  /**
+   * Solde de fin de mois dans le pire des cas : le solde théorique de fin de mois, moins ce qu'il te reste à dépenser
+   * dans chaque budget (budget moins dépensé, jamais négatif). Les dépenses déjà saisies, y compris celles des catégories
+   * sans budget, sont déjà dans le solde théorique. Un budget déjà dépassé ne retire rien de plus : on ne prévoit pas
+   * de dépassement supplémentaire.
+   */
+  readonly budgetWorstCase = computed(() => {
     const s = this.currentSummary();
     if (!s) return null;
-    const total = Math.round(this.currentBudgetRows().reduce((a, r) => a + r.budget.amount, 0) * 100) / 100;
-    return { income: s.income, savings: s.savings, total, left: Math.round((s.income - s.savings - total) * 100) / 100 };
+    const remainingBudgets = Math.round(this.currentBudgetRows().reduce((a, r) => a + Math.max(0, r.remaining), 0) * 100) / 100;
+    return {
+      end: s.endingBalance,
+      remainingBudgets,
+      worst: Math.round((s.endingBalance - remainingBudgets) * 100) / 100,
+    };
   });
 
   // ------------------------------------------------------------
